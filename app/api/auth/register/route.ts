@@ -2,7 +2,7 @@ export async function POST(req: Request) {
   const body = await req.json()
   const { name, email, password, code } = body
 
-  const KODE_MEMBER = ["KODE1", "KODE2"]
+  const KODE_MEMBER = ["MLS-NGU-2026", "MLS-MAN-2026"]
   const KODE_MENTOR = "CEKEKOKOMLS" // <-- PAKAI YG INI YA
 
   if (!KODE_MEMBER.includes(code) && code !== KODE_MENTOR) {
