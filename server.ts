@@ -17,6 +17,37 @@ app.use("/api/assets", express.static(assetsDir));
 app.use(express.static(path.join(process.cwd(), "public")));
 
 // --- Types ---
+interface FeedbackItem {
+  id: string;
+  user_name: string;
+  user_level: string;
+  rating: number;
+  category: string;
+  feedback: string;
+  created_at: string;
+}
+
+const feedbackList: FeedbackItem[] = [
+  {
+    id: "fb-1",
+    user_name: "Rian (Ketua Kelas)",
+    user_level: "nguli",
+    rating: 5,
+    category: "Loker RODI",
+    feedback: "Materi dan latihan subtesnya enak banget buat drill harian. Keren kalau ditambah timer per butir soal!",
+    created_at: "Hari ini",
+  },
+  {
+    id: "fb-2",
+    user_name: "Salsa",
+    user_level: "mandor",
+    rating: 5,
+    category: "Wacawaci & Video",
+    feedback: "Video pembahasannya sangat ngebantu konsep dasar. Rekomendasi buat teman-teman sekelas dicoba setahun ini!",
+    created_at: "Kemarin",
+  },
+];
+
 type Level = "nguli" | "mandor" | "supervisor";
 
 interface User {
@@ -1028,6 +1059,31 @@ app.post("/api/motivation", async (req: Request, res: Response) => {
     message,
     source: "Malas Belajar AI Coach",
   });
+});
+
+// Feedback & Classroom Trial APIs
+app.get("/api/feedback", (_req: Request, res: Response) => {
+  res.json(feedbackList);
+});
+
+app.post("/api/feedback", (req: Request, res: Response) => {
+  const { user_name, user_level, rating, category, feedback } = req.body;
+  if (!feedback || !feedback.trim()) {
+    return res.status(400).json({ detail: "Masukan/feedback wajib diisi." });
+  }
+
+  const newFeedback: FeedbackItem = {
+    id: `fb-${Date.now()}`,
+    user_name: (user_name && user_name.trim()) || "Siswa Kelas Uji Coba",
+    user_level: user_level || "nguli",
+    rating: Number(rating) || 5,
+    category: category || "Umum & Fitur Baru",
+    feedback: feedback.trim(),
+    created_at: "Baru saja",
+  };
+
+  feedbackList.unshift(newFeedback);
+  res.json(newFeedback);
 });
 
 // Mentor & Admin APIs

@@ -17,8 +17,11 @@ import {
   HardHat,
   KeyRound,
   LogOut,
+  MessageSquareHeart,
+  Share2,
   ShieldCheck,
   Sparkles,
+  Star,
   Trophy,
   Upload,
   UserRoundCog,
@@ -159,6 +162,15 @@ interface AccessCode {
   level: string;
   used: boolean;
   used_by: string;
+}
+interface FeedbackItem {
+  id: string;
+  user_name: string;
+  user_level: string;
+  rating: number;
+  category: string;
+  feedback: string;
+  created_at: string;
 }
 
 const mlsLogo = "/api/assets/mls-logo.png";
@@ -943,6 +955,336 @@ function StudentAccountGateway({
         </div>
       )}
     </section>
+  );
+}
+
+function ClassroomTrialBanner({
+  user,
+  onOpenFeedback,
+}: {
+  user: User;
+  onOpenFeedback: () => void;
+}) {
+  const currentLiveUrl =
+    typeof window !== "undefined" && window.location.origin
+      ? window.location.origin
+      : "https://ais-pre-sponx53o5jssh6nbqh3gpz-506191581863.asia-southeast1.run.app";
+
+  const [copied, setCopied] = useState(false);
+
+  const handleCopyLink = () => {
+    navigator.clipboard.writeText(currentLiveUrl);
+    setCopied(true);
+    toast.success("Tautan Live berhasil disalin! Siap dibagikan ke grup kelas.");
+    setTimeout(() => setCopied(false), 2500);
+  };
+
+  const handleCopyShareText = () => {
+    const text = `Halo teman-teman sekelas! 🚀\nYuk coba prototype website belajar UTBK Malas Belajar (RODI, Wacawaci, Live Class, & UTBABY) selama masa uji coba 1 tahun ini.\nBisa langsung diakses di sini:\n👉 ${currentLiveUrl}\n\nAda 3 level belajar (Nguli, Mandor, Supervisor). Silakan dicoba dan kirim masukan langsung di dalam website ya!`;
+    navigator.clipboard.writeText(text);
+    toast.success("Pesan ajakan untuk grup kelas berhasil disalin!");
+  };
+
+  return (
+    <div
+      className="pixel-card overflow-hidden border-4 border-violet-950 bg-gradient-to-r from-yellow-300 via-amber-200 to-pink-300 p-4 sm:p-5 shadow-[6px_6px_0_#2e1065]"
+      data-testid="classroom-trial-banner"
+    >
+      <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
+        <div className="space-y-1">
+          <div className="flex flex-wrap items-center gap-2">
+            <span className="rounded-md border-2 border-violet-950 bg-pink-500 px-2.5 py-0.5 font-mono text-[10px] font-black uppercase tracking-wider text-white shadow-[2px_2px_0_#2e1065]">
+              PROTOTYPE KELAS · UJI COBA 1 TAHUN
+            </span>
+            <span className="flex items-center gap-1 font-mono text-xs font-bold text-violet-950">
+              <Sparkles className="h-3.5 w-3.5 text-pink-600" />
+              Aktif 2026-2027
+            </span>
+          </div>
+          <h2 className="pixel-title text-xl text-violet-950 sm:text-2xl">
+            BAGIKAN KE ANAK KELAS & KUMPULKAN MASUKAN
+          </h2>
+          <p className="max-w-2xl text-xs font-semibold leading-relaxed text-violet-900">
+            Link live ini siap kamu bagikan ke grup kelas. Teman-temanmu bisa langsung mencoba semua loker drill soal, ganti level belajar, dan mengirim masukan perbaikan secara real-time.
+          </p>
+        </div>
+
+        <div className="flex flex-wrap items-center gap-2 sm:gap-3">
+          <button
+            type="button"
+            onClick={handleCopyLink}
+            className="flex items-center gap-2 rounded-xl border-3 border-violet-950 bg-white px-4 py-2.5 font-mono text-xs font-black uppercase text-violet-950 shadow-[3px_3px_0_#2e1065] transition hover:bg-violet-50 hover:shadow-[1px_1px_0_#2e1065] active:translate-x-0.5 active:translate-y-0.5"
+            data-testid="copy-live-url-btn"
+          >
+            {copied ? (
+              <>
+                <Check className="h-4 w-4 text-emerald-600" />
+                <span>TERSALIN!</span>
+              </>
+            ) : (
+              <>
+                <Share2 className="h-4 w-4 text-violet-950" />
+                <span>SALIN LIVE LINK</span>
+              </>
+            )}
+          </button>
+
+          <button
+            type="button"
+            onClick={handleCopyShareText}
+            className="flex items-center gap-2 rounded-xl border-3 border-violet-950 bg-violet-950 px-4 py-2.5 font-mono text-xs font-black uppercase text-yellow-300 shadow-[3px_3px_0_#000] transition hover:bg-violet-900 active:translate-x-0.5 active:translate-y-0.5"
+            data-testid="copy-share-text-btn"
+            title="Salin teks lengkap siap kirim ke WhatsApp/Telegram grup kelas"
+          >
+            <span>💬 TEKS UNTUK GRUP</span>
+          </button>
+
+          <button
+            type="button"
+            onClick={onOpenFeedback}
+            className="flex items-center gap-2 rounded-xl border-3 border-violet-950 bg-pink-500 px-4 py-2.5 font-mono text-xs font-black uppercase text-white shadow-[3px_3px_0_#2e1065] transition hover:bg-pink-600 active:translate-x-0.5 active:translate-y-0.5"
+            data-testid="open-feedback-form-btn"
+          >
+            <MessageSquareHeart className="h-4 w-4" />
+            <span>KIRIM MASUKAN</span>
+          </button>
+        </div>
+      </div>
+
+      {/* Tampilan URL Live Box */}
+      <div className="mt-3 flex flex-wrap items-center justify-between gap-2 rounded-lg border-2 border-violet-950/40 bg-white/80 p-2.5 text-[11px]">
+        <div className="flex min-w-0 items-center gap-2">
+          <span className="font-mono font-bold text-slate-500 uppercase">Live URL:</span>
+          <code className="truncate rounded bg-violet-100 px-2 py-0.5 font-mono font-black text-violet-950">
+            {currentLiveUrl}
+          </code>
+        </div>
+        <span className="font-semibold italic text-violet-800">
+          *Dapat dibuka di HP, laptop, & tablet tanpa instalasi apapun
+        </span>
+      </div>
+    </div>
+  );
+}
+
+function ClassroomFeedbackModal({
+  user,
+  onClose,
+}: {
+  user: User;
+  onClose: () => void;
+}) {
+  const queryClient = useQueryClient();
+  const [userName, setUserName] = useState(user.name);
+  const [rating, setRating] = useState(5);
+  const [category, setCategory] = useState("Loker RODI & Soal");
+  const [feedback, setFeedback] = useState("");
+
+  const feedbackQuery = useQuery({
+    queryKey: ["feedback"],
+    queryFn: () => apiGet<FeedbackItem[]>("/feedback"),
+  });
+
+  const feedbackMutation = useMutation({
+    mutationFn: () =>
+      apiPost<FeedbackItem>("/feedback", {
+        user_name: userName.trim() || user.name,
+        user_level: user.level,
+        rating,
+        category,
+        feedback: feedback.trim(),
+      }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["feedback"] });
+      toast.success("Terima kasih! Masukanmu sudah tercatat dan tersimpan.");
+      setFeedback("");
+    },
+    onError: () => toast.error("Gagal mengirim masukan. Pastikan form terisi."),
+  });
+
+  const categories = [
+    "Loker RODI & Soal",
+    "Wacawaci (Video & Modul)",
+    "Live Class & Jadwal",
+    "UTBABY & Try Out",
+    "Tampilan & Desain",
+    "Usulan Fitur Baru",
+  ];
+
+  return (
+    <div
+      className="review-overlay flex items-center justify-center p-4"
+      data-testid="classroom-feedback-modal"
+    >
+      <div className="review-panel max-h-[90vh] w-full max-w-2xl overflow-y-auto rounded-2xl border-4 border-violet-950 bg-white shadow-[8px_8px_0_#2e1065]">
+        <div className="sticky top-0 z-10 flex items-center justify-between border-b-4 border-violet-950 bg-yellow-300 p-4">
+          <div className="flex items-center gap-2">
+            <MessageSquareHeart className="h-6 w-6 text-violet-950" />
+            <div>
+              <p className="pixel-label">UJI COBA KELAS 1 TAHUN</p>
+              <h3 className="pixel-title text-xl text-violet-950">
+                KOTAK MASUKAN & SARAN PERBAIKAN
+              </h3>
+            </div>
+          </div>
+          <Button
+            variant="outline"
+            onClick={onClose}
+            className="border-2 border-violet-950 bg-white font-bold"
+            data-testid="close-feedback-modal-btn"
+          >
+            Tutup
+          </Button>
+        </div>
+
+        <div className="p-5 space-y-6">
+          {/* Form Kirim Masukan Baru */}
+          <section className="rounded-xl border-2 border-violet-950 bg-violet-50 p-4">
+            <p className="pixel-title text-sm text-violet-950">
+              KIRIM SARAN ATAU LAPORAN BARU
+            </p>
+            <p className="text-xs text-slate-600 mt-0.5">
+              Setiap masukan dari kamu dan teman sekelas akan langsung dicatat untuk penyempurnaan aplikasi.
+            </p>
+
+            <form
+              onSubmit={(e) => {
+                e.preventDefault();
+                feedbackMutation.mutate();
+              }}
+              className="mt-4 space-y-3"
+            >
+              <div className="grid gap-3 sm:grid-cols-2">
+                <div>
+                  <label className="pixel-label block mb-1">Nama Siswa / Pengirim:</label>
+                  <Input
+                    value={userName}
+                    onChange={(e) => setUserName(e.target.value)}
+                    placeholder="Nama teman sekelas"
+                    className="border-2 border-violet-950 bg-white text-xs font-bold"
+                    data-testid="feedback-name-input"
+                  />
+                </div>
+                <div>
+                  <label className="pixel-label block mb-1">Kategori Bagian:</label>
+                  <select
+                    value={category}
+                    onChange={(e) => setCategory(e.target.value)}
+                    className="w-full rounded-md border-2 border-violet-950 bg-white p-2 text-xs font-bold text-violet-950 shadow-sm"
+                    data-testid="feedback-category-select"
+                  >
+                    {categories.map((cat) => (
+                      <option key={cat} value={cat}>
+                        {cat}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+              </div>
+
+              <div>
+                <label className="pixel-label block mb-1">Penilaianmu:</label>
+                <div className="flex items-center gap-1">
+                  {[1, 2, 3, 4, 5].map((star) => (
+                    <button
+                      key={star}
+                      type="button"
+                      onClick={() => setRating(star)}
+                      className="p-1 transition hover:scale-110"
+                      title={`Beri ${star} bintang`}
+                    >
+                      <Star
+                        className={`h-6 w-6 ${
+                          star <= rating
+                            ? "fill-yellow-400 text-yellow-500"
+                            : "text-slate-300"
+                        }`}
+                      />
+                    </button>
+                  ))}
+                  <span className="ml-2 font-mono text-xs font-black text-violet-950">
+                    {rating} / 5 Bintang
+                  </span>
+                </div>
+              </div>
+
+              <div>
+                <label className="pixel-label block mb-1">
+                  Masukan / Apa yang Ingin Diubah atau Ditambah:
+                </label>
+                <Textarea
+                  value={feedback}
+                  onChange={(e) => setFeedback(e.target.value)}
+                  placeholder="Contoh: Soal penalaran matematikanya seru, tapi kalau bisa tambahin timer 60 detik per soal dong... atau fiturnya kurang..."
+                  rows={3}
+                  className="border-2 border-violet-950 bg-white text-xs"
+                  data-testid="feedback-text-input"
+                  required
+                />
+              </div>
+
+              <PixelButton
+                type="submit"
+                disabled={feedbackMutation.isPending || !feedback.trim()}
+                className="w-full bg-yellow-300 py-2.5 font-mono text-xs font-black uppercase text-violet-950 hover:bg-yellow-400 disabled:opacity-50"
+                data-testid="submit-feedback-btn"
+              >
+                {feedbackMutation.isPending ? "MENGIRIM..." : "KIRIM MASUKAN KELAS"}
+              </PixelButton>
+            </form>
+          </section>
+
+          {/* Daftar Masukan yang Sudah Masuk */}
+          <section className="space-y-3">
+            <div className="flex items-center justify-between">
+              <p className="pixel-title text-sm text-violet-950">
+                DAFTAR MASUKAN DARI TEMAN SEKELAS
+              </p>
+              <Badge className="bg-violet-950 text-white font-mono text-[10px]">
+                {(feedbackQuery.data ?? []).length} Masukan
+              </Badge>
+            </div>
+
+            <div className="space-y-2.5 max-h-60 overflow-y-auto pr-1">
+              {(feedbackQuery.data ?? []).length ? (
+                (feedbackQuery.data ?? []).map((fb) => (
+                  <article
+                    key={fb.id}
+                    className="rounded-lg border-2 border-violet-200 bg-white p-3 shadow-sm"
+                  >
+                    <div className="flex flex-wrap items-center justify-between gap-1">
+                      <div className="flex items-center gap-2">
+                        <span className="font-bold text-xs text-violet-950">
+                          {fb.user_name}
+                        </span>
+                        <Badge className="bg-pink-100 text-pink-700 border border-pink-300 text-[10px]">
+                          {fb.category}
+                        </Badge>
+                      </div>
+                      <div className="flex items-center gap-1">
+                        <span className="font-mono text-xs font-black text-amber-500">
+                          {"★".repeat(fb.rating)}
+                        </span>
+                        <span className="font-mono text-[10px] text-slate-400">
+                          · {fb.created_at}
+                        </span>
+                      </div>
+                    </div>
+                    <p className="mt-1.5 text-xs text-slate-700 leading-relaxed">
+                      "{fb.feedback}"
+                    </p>
+                  </article>
+                ))
+              ) : (
+                <p className="py-6 text-center text-xs text-slate-500">
+                  Belum ada masukan tersimpan. Jadilah yang pertama memberikan masukan!
+                </p>
+              )}
+            </div>
+          </section>
+        </div>
+      </div>
+    </div>
   );
 }
 
