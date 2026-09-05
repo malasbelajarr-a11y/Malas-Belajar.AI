@@ -1,0 +1,6 @@
+{
+  "name": "Malas Belajar · RODI & UTBABY",
+  "description": "Platform persiapan UTBK bertingkat — RODI (Routine Drilling IRT), Wacawaci, Live Class, dan UTBABY Tryout Malas Belajar.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
