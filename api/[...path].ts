@@ -1,6 +1,12 @@
+import express from "express";
 import app from "../server";
 
-// Vercel catch-all API function: forwards every /api/* route to the
-// existing Express application so nested routes such as
-// /api/admin/access-codes and /api/wacawaci/resources work in production.
-export default app;
+// Vercel may hand the request to the function without an Express-parsed body.
+// Parse JSON/form bodies once at the function boundary so POST/PATCH routes
+// such as auth, mentor, admin, and UTBABY never crash on req.body === undefined.
+const handler = express();
+handler.use(express.json());
+handler.use(express.urlencoded({ extended: true }));
+handler.use(app);
+
+export default handler;
