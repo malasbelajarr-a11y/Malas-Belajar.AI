@@ -43,7 +43,13 @@ async function request<T>(method: string, path: string, body?: JsonBody | FormDa
   // FastAPI reports request-validation failures as 422 with a {detail: [...]} body.
   if (!res.ok) {
     const errBody = await res.json().catch(() => null);
-    throw new ApiError(res.status, errBody);
+    const detail =
+      errBody && typeof errBody === "object" && "detail" in errBody
+        ? String((errBody as { detail: unknown }).detail)
+        : errBody && typeof errBody === "object" && "error" in errBody
+          ? String((errBody as { error: unknown }).error)
+          : `request failed with ${res.status}`;
+    throw new ApiError(res.status, { ...(typeof errBody === "object" && errBody ? errBody : {}), message: detail });
   }
 
   if (res.status === 204) return undefined as T;

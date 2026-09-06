@@ -553,7 +553,7 @@ function StudentAccountGateway({
     },
     onError: (err: any) =>
       toast.error(
-        err?.message || "Belum bisa memproses. Periksa kembali kode atau akunmu.",
+        err?.body?.message || err?.message || "Belum bisa memproses. Periksa kembali kode atau akunmu.",
       ),
   });
 
@@ -1320,7 +1320,7 @@ function AuthPortal({ onMentor }: { onMentor: () => void }) {
     },
     onError: (err: any) =>
       toast.error(
-        err?.message || "Belum bisa masuk. Periksa email, sandi, atau levelmu.",
+        err?.body?.message || err?.message || "Belum bisa masuk. Periksa email, sandi, atau levelmu.",
       ),
   });
 
@@ -2435,6 +2435,10 @@ export default function Home() {
   }, [reviewOpen, tryoutResult, tryoutQuery.data, tryoutAnswers]);
 
   if (splash) return <Splash onContinue={() => setSplash(false)} />;
+  if (!sessionQuery.isLoading && !user && view !== "mentor") {
+    return <AuthPortal onMentor={() => setView("mentor")} />;
+  }
+
   if (view === "mentor" && !mentorUnlocked)
     return (
       <main
@@ -2834,14 +2838,7 @@ export default function Home() {
       </main>
     );
 
-  const fallbackGuestUser: User = {
-    id: "usr-demo-1",
-    name: "Pejuang Belajar",
-    email: "siswa@malasbelajar.id",
-    level: "nguli",
-    active: true,
-  };
-  const safeUser: User = (user || fallbackGuestUser) as User;
+  const safeUser = user as User;
   return (
     <div className="min-h-screen bg-violet-50" data-testid="authenticated-app">
       <AppHeader

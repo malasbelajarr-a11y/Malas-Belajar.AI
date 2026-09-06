@@ -1,5 +1,6 @@
 import express, { Request, Response } from "express";
 import path from "path";
+import crypto from "crypto";
 import cookieParser from "cookie-parser";
 import { createServer as createViteServer } from "vite";
 import { GoogleGenAI } from "@google/genai";
@@ -56,6 +57,7 @@ interface User {
   email: string;
   level: Level;
   active: boolean;
+  passwordHash?: string;
 }
 
 interface Question {
@@ -149,6 +151,36 @@ interface AccessCode {
 }
 
 // --- In-Memory State & Seed Data ---
+function hashPassword(password: string): string {
+  const salt = crypto.randomBytes(16).toString("hex");
+  const hash = crypto.scryptSync(password, salt, 64).toString("hex");
+  return `${salt}:${hash}`;
+}
+
+function verifyPassword(password: string, stored: string): boolean {
+  const [salt, storedHash] = stored.split(":");
+  if (!salt || !storedHash) return false;
+  const derived = crypto.scryptSync(password, salt, 64).toString("hex");
+  const a = Buffer.from(derived, "hex");
+  const b = Buffer.from(storedHash, "hex");
+  return a.length === b.length && crypto.timingSafeEqual(a, b);
+}
+
+function publicUser(user: User): Omit<User, "passwordHash"> {
+  const { passwordHash: _passwordHash, ...safe } = user;
+  return safe;
+}
+
+function setSessionCookie(req: Request, res: Response, userId: string): void {
+  const isHttps = req.secure || req.headers["x-forwarded-proto"] === "https";
+  res.cookie("mls_session", userId, {
+    httpOnly: true,
+    sameSite: isHttps ? "none" : "lax",
+    secure: isHttps,
+    path: "/",
+    maxAge: 30 * 24 * 60 * 60 * 1000,
+  });
+}
 const users: Map<string, User> = new Map([
   [
     "usr-demo-1",
@@ -668,18 +700,10 @@ function getCurrentUser(req: Request): User | null {
     (authHeader?.startsWith("Bearer ") ? authHeader.substring(7) : null);
   const cookieToken = req.cookies?.mls_session;
   const token = headerToken || cookieToken;
-
-  if (token && users.has(token)) {
-    const u = users.get(token)!;
-    activeUser = u;
-    return u;
-  }
-
-  // Fallback to active student so iframe previews without cross-origin cookie support never fail
-  if (activeUser) {
-    return activeUser;
-  }
-  return users.get("usr-demo-1") || null;
+  if (!token) return null;
+  const user = users.get(token);
+  if (!user || !user.active) return null;
+  return user;
 }
 
 // --- API Endpoints ---
@@ -687,87 +711,76 @@ function getCurrentUser(req: Request): User | null {
 // Auth
 app.get("/api/auth/me", (req: Request, res: Response) => {
   const user = getCurrentUser(req);
-  res.json(user);
+  res.json(user ? publicUser(user) : null);
 });
 
 app.post("/api/auth/register", (req: Request, res: Response) => {
   const { name, email, password, access_code, level } = req.body;
-  if (!email || !name) {
-    res.status(400).json({ detail: "Nama dan email wajib diisi." });
+  const cleanName = String(name || "").trim();
+  const emailLower = String(email || "").trim().toLowerCase();
+  const cleanPassword = String(password || "");
+  if (!cleanName || !emailLower || !cleanPassword) {
+    res.status(400).json({ detail: "Nama, email, dan password wajib diisi." });
     return;
   }
-
-  // Determine level from code or explicit level choice
-  let userLevel: Level = (level as Level) || "nguli";
-  const codeUpper = (access_code || "").trim().toUpperCase();
-  if (codeUpper.includes("MANDOR") || codeUpper.includes("MAN")) {
-    userLevel = "mandor";
-  } else if (codeUpper.includes("SUPERVISOR") || codeUpper.includes("SPV")) {
-    userLevel = "supervisor";
-  } else if (codeUpper.includes("NGULI") || codeUpper.includes("NGU")) {
-    userLevel = "nguli";
+  if (cleanPassword.length < 6) {
+    res.status(400).json({ detail: "Password minimal 6 karakter." });
+    return;
   }
-
-  const newId = `usr-${Date.now()}`;
+  if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(emailLower)) {
+    res.status(400).json({ detail: "Format email tidak valid." });
+    return;
+  }
+  if (Array.from(users.values()).some((u) => u.email === emailLower)) {
+    res.status(409).json({ detail: "Email sudah terdaftar. Silakan login." });
+    return;
+  }
+  let userLevel: Level = (level as Level) || "nguli";
+  const codeUpper = String(access_code || "").trim().toUpperCase();
+  if (codeUpper.includes("MANDOR") || codeUpper.includes("MAN")) userLevel = "mandor";
+  else if (codeUpper.includes("SUPERVISOR") || codeUpper.includes("SPV")) userLevel = "supervisor";
+  else if (codeUpper.includes("NGULI") || codeUpper.includes("NGU")) userLevel = "nguli";
   const newUser: User = {
-    id: newId,
-    name: name.trim(),
-    email: email.trim().toLowerCase(),
+    id: `usr-${Date.now()}-${crypto.randomBytes(4).toString("hex")}`,
+    name: cleanName,
+    email: emailLower,
     level: userLevel,
     active: true,
+    passwordHash: hashPassword(cleanPassword),
   };
-
-  users.set(newId, newUser);
-  activeUser = newUser;
-
-  res.cookie("mls_session", newId, {
-    httpOnly: true,
-    sameSite: "none",
-    secure: true,
-    path: "/",
-    maxAge: 30 * 24 * 60 * 60 * 1000,
-  });
-  res.json(newUser);
+  users.set(newUser.id, newUser);
+  setSessionCookie(req, res, newUser.id);
+  res.status(201).json(publicUser(newUser));
 });
 
 app.post("/api/auth/login", (req: Request, res: Response) => {
-  const { email, level } = req.body;
-  const emailLower = (email || "").trim().toLowerCase();
-
-  let matchedUser: User | undefined;
-  for (const u of users.values()) {
-    if (u.email.toLowerCase() === emailLower) {
-      matchedUser = u;
-      break;
-    }
+  const emailLower = String(req.body.email || "").trim().toLowerCase();
+  const password = String(req.body.password || "");
+  const level = req.body.level as Level | undefined;
+  if (!emailLower || !password) {
+    res.status(400).json({ detail: "Email dan password wajib diisi." });
+    return;
   }
-
-  if (matchedUser) {
-    if (level && (level === "nguli" || level === "mandor" || level === "supervisor")) {
-      matchedUser.level = level;
-    }
-  } else {
-    // Create student on the fly for any email
-    const newId = `usr-${Date.now()}`;
-    matchedUser = {
-      id: newId,
-      name: email?.split("@")[0] || "Siswa Pejuang",
-      email: emailLower || "siswa@malasbelajar.id",
-      level: (level as Level) || "nguli",
-      active: true,
-    };
-    users.set(newId, matchedUser);
+  const matchedUser = Array.from(users.values()).find((u) => u.email.toLowerCase() === emailLower);
+  if (!matchedUser) {
+    res.status(401).json({ detail: "Email belum terdaftar. Silakan daftar terlebih dahulu." });
+    return;
   }
-
-  activeUser = matchedUser;
-  res.cookie("mls_session", matchedUser.id, {
-    httpOnly: true,
-    sameSite: "none",
-    secure: true,
-    path: "/",
-    maxAge: 30 * 24 * 60 * 60 * 1000,
-  });
-  res.json(matchedUser);
+  if (!matchedUser.active) {
+    res.status(403).json({ detail: "Akun kamu sedang dinonaktifkan." });
+    return;
+  }
+  if (!matchedUser.passwordHash) matchedUser.passwordHash = hashPassword("123456");
+  if (!verifyPassword(password, matchedUser.passwordHash)) {
+    res.status(401).json({ detail: "Password salah." });
+    return;
+  }
+  if (level && ["nguli", "mandor", "supervisor"].includes(level) && matchedUser.level !== level) {
+    res.status(403).json({ detail: `Akun ini terdaftar sebagai ${matchedUser.level}. Pilih level yang sesuai.` });
+    return;
+  }
+  setSessionCookie(req, res, matchedUser.id);
+  res.json(publicUser(matchedUser));
 });
 
 app.post("/api/auth/demo", (req: Request, res: Response) => {
@@ -790,7 +803,7 @@ app.post("/api/auth/demo", (req: Request, res: Response) => {
     path: "/",
     maxAge: 30 * 24 * 60 * 60 * 1000,
   });
-  res.json(user);
+  res.json(publicUser(user));
 });
 
 app.patch("/api/auth/level", (req: Request, res: Response) => {
@@ -803,7 +816,7 @@ app.patch("/api/auth/level", (req: Request, res: Response) => {
   if (level === "nguli" || level === "mandor" || level === "supervisor") {
     user.level = level;
     activeUser = user;
-    res.json(user);
+    res.json(publicUser(user));
   } else {
     res.status(400).json({ detail: "Level tidak valid" });
   }
@@ -1128,14 +1141,14 @@ app.post("/api/admin/access-codes", (req: Request, res: Response) => {
 });
 
 app.get("/api/admin/students", (_req: Request, res: Response) => {
-  res.json(Array.from(users.values()));
+  res.json(Array.from(users.values()).map(publicUser));
 });
 
 app.patch("/api/admin/students/:id", (req: Request, res: Response) => {
   const student = users.get(req.params.id);
   if (student) {
     student.active = req.body.active !== undefined ? req.body.active : !student.active;
-    res.json(student);
+    res.json(publicUser(student));
   } else {
     res.status(404).json({ detail: "Siswa tidak ditemukan." });
   }
@@ -1188,7 +1201,7 @@ app.put("/api/admin/questions/:id/explanation", (req: Request, res: Response) =>
 });
 
 // --- Vite Middleware in Dev / Static Serving in Prod ---
-async function startServer() {
+export async function startServer() {
   if (process.env.NODE_ENV !== "production") {
     const vite = await createViteServer({
       server: { middlewareMode: true },
@@ -1208,4 +1221,8 @@ async function startServer() {
   });
 }
 
-startServer();
+if (!process.env.VERCEL) {
+  startServer();
+}
+
+export default app;
