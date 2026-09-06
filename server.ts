@@ -220,6 +220,7 @@ const accessCodes: AccessCode[] = [
   { id: "code-3", code: "SPV-MLS", level: "supervisor", used: false, used_by: "" },
   { id: "code-4", code: "MLS2026", level: "nguli", used: false, used_by: "" },
   { id: "code-5", code: "MLS-NGU-9921", level: "nguli", used: false, used_by: "" },
+  { id: "code-mentor-2026", code: "MLS-MENTOR-2026", level: "mentor", used: false, used_by: "" },
 ];
 
 const subtests: Subtest[] = [
