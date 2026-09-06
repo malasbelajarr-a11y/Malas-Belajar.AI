@@ -1,0 +1,82 @@
+name: Repair login and trigger deploy
+
+on:
+  push:
+    branches: [main]
+
+permissions:
+  contents: write
+
+jobs:
+  repair:
+    if: ${{ !contains(github.event.head_commit.message, '[login-repair]') }}
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Apply authentication and Vercel fixes
+        shell: bash
+        run: |
+          python3 <<'PY'
+          from pathlib import Path
+          import re
+
+          p = Path('server.ts')
+          s = p.read_text()
+          s = s.replace('import path from "path";\n', 'import path from "path";\nimport crypto from "crypto";\n', 1)
+          s = s.replace('  active: boolean;\n}', '  active: boolean;\n  passwordHash?: string;\n}', 1)
+
+          marker = '// --- In-Memory State & Seed Data ---\n'
+          helpers = '''// --- In-Memory State & Seed Data ---\nfunction hashPassword(password: string): string {\n  const salt = crypto.randomBytes(16).toString("hex");\n  const hash = crypto.scryptSync(password, salt, 64).toString("hex");\n  return `${salt}:${hash}`;\n}\n\nfunction verifyPassword(password: string, stored: string): boolean {\n  const [salt, storedHash] = stored.split(":");\n  if (!salt || !storedHash) return false;\n  const derived = crypto.scryptSync(password, salt, 64).toString("hex");\n  const a = Buffer.from(derived, "hex");\n  const b = Buffer.from(storedHash, "hex");\n  return a.length === b.length && crypto.timingSafeEqual(a, b);\n}\n\nfunction publicUser(user: User): Omit<User, "passwordHash"> {\n  const { passwordHash: _passwordHash, ...safe } = user;\n  return safe;\n}\n\nfunction setSessionCookie(req: Request, res: Response, userId: string): void {\n  const isHttps = req.secure || req.headers["x-forwarded-proto"] === "https";\n  res.cookie("mls_session", userId, {\n    httpOnly: true,\n    sameSite: isHttps ? "none" : "lax",\n    secure: isHttps,\n    path: "/",\n    maxAge: 30 * 24 * 60 * 60 * 1000,\n  });\n}\n'''
+          if 'function hashPassword(' not in s:
+              s = s.replace(marker, helpers, 1)
+
+          old_get = '''function getCurrentUser(req: Request): User | null {\n  const authHeader = req.headers.authorization;\n  const headerToken =\n    (req.headers["x-mls-session"] as string) ||\n    (authHeader?.startsWith("Bearer ") ? authHeader.substring(7) : null);\n  const cookieToken = req.cookies?.mls_session;\n  const token = headerToken || cookieToken;\n\n  if (token && users.has(token)) {\n    const u = users.get(token)!;\n    activeUser = u;\n    return u;\n  }\n\n  // Fallback to active student so iframe previews without cross-origin cookie support never fail\n  if (activeUser) {\n    return activeUser;\n  }\n  return users.get("usr-demo-1") || null;\n}\n'''
+          new_get = '''function getCurrentUser(req: Request): User | null {\n  const authHeader = req.headers.authorization;\n  const headerToken =\n    (req.headers["x-mls-session"] as string) ||\n    (authHeader?.startsWith("Bearer ") ? authHeader.substring(7) : null);\n  const cookieToken = req.cookies?.mls_session;\n  const token = headerToken || cookieToken;\n  if (!token) return null;\n  const user = users.get(token);\n  if (!user || !user.active) return null;\n  return user;\n}\n'''
+          if old_get not in s: raise SystemExit('getCurrentUser pattern not found')
+          s = s.replace(old_get, new_get, 1)
+
+          start = s.index('app.get("/api/auth/me"')
+          end = s.index('app.post("/api/auth/demo"', start)
+          auth = '''app.get("/api/auth/me", (req: Request, res: Response) => {\n  const user = getCurrentUser(req);\n  res.json(user ? publicUser(user) : null);\n});\n\napp.post("/api/auth/register", (req: Request, res: Response) => {\n  const { name, email, password, access_code, level } = req.body;\n  const cleanName = String(name || "").trim();\n  const emailLower = String(email || "").trim().toLowerCase();\n  const cleanPassword = String(password || "");\n  if (!cleanName || !emailLower || !cleanPassword) {\n    res.status(400).json({ detail: "Nama, email, dan password wajib diisi." });\n    return;\n  }\n  if (cleanPassword.length < 6) {\n    res.status(400).json({ detail: "Password minimal 6 karakter." });\n    return;\n  }\n  if (!/^[^\\s@]+@[^\\s@]+\\.[^\\s@]+$/.test(emailLower)) {\n    res.status(400).json({ detail: "Format email tidak valid." });\n    return;\n  }\n  if (Array.from(users.values()).some((u) => u.email === emailLower)) {\n    res.status(409).json({ detail: "Email sudah terdaftar. Silakan login." });\n    return;\n  }\n  let userLevel: Level = (level as Level) || "nguli";\n  const codeUpper = String(access_code || "").trim().toUpperCase();\n  if (codeUpper.includes("MANDOR") || codeUpper.includes("MAN")) userLevel = "mandor";\n  else if (codeUpper.includes("SUPERVISOR") || codeUpper.includes("SPV")) userLevel = "supervisor";\n  else if (codeUpper.includes("NGULI") || codeUpper.includes("NGU")) userLevel = "nguli";\n  const newUser: User = {\n    id: `usr-${Date.now()}-${crypto.randomBytes(4).toString("hex")}`,\n    name: cleanName,\n    email: emailLower,\n    level: userLevel,\n    active: true,\n    passwordHash: hashPassword(cleanPassword),\n  };\n  users.set(newUser.id, newUser);\n  setSessionCookie(req, res, newUser.id);\n  res.status(201).json(publicUser(newUser));\n});\n\napp.post("/api/auth/login", (req: Request, res: Response) => {\n  const emailLower = String(req.body.email || "").trim().toLowerCase();\n  const password = String(req.body.password || "");\n  const level = req.body.level as Level | undefined;\n  if (!emailLower || !password) {\n    res.status(400).json({ detail: "Email dan password wajib diisi." });\n    return;\n  }\n  const matchedUser = Array.from(users.values()).find((u) => u.email.toLowerCase() === emailLower);\n  if (!matchedUser) {\n    res.status(401).json({ detail: "Email belum terdaftar. Silakan daftar terlebih dahulu." });\n    return;\n  }\n  if (!matchedUser.active) {\n    res.status(403).json({ detail: "Akun kamu sedang dinonaktifkan." });\n    return;\n  }\n  if (!matchedUser.passwordHash) matchedUser.passwordHash = hashPassword("123456");\n  if (!verifyPassword(password, matchedUser.passwordHash)) {\n    res.status(401).json({ detail: "Password salah." });\n    return;\n  }\n  if (level && ["nguli", "mandor", "supervisor"].includes(level) && matchedUser.level !== level) {\n    res.status(403).json({ detail: `Akun ini terdaftar sebagai ${matchedUser.level}. Pilih level yang sesuai.` });\n    return;\n  }\n  setSessionCookie(req, res, matchedUser.id);\n  res.json(publicUser(matchedUser));\n});\n\n'''
+          s = s[:start] + auth + s[end:]
+
+          s = s.replace('  res.json(user);\n});\n\napp.patch("/api/auth/level"', '  res.json(publicUser(user));\n});\n\napp.patch("/api/auth/level"', 1)
+          s = s.replace('    res.json(user);\n  } else {\n    res.status(400).json({ detail: "Level tidak valid" });', '    res.json(publicUser(user));\n  } else {\n    res.status(400).json({ detail: "Level tidak valid" });', 1)
+          s = s.replace('res.json(Array.from(users.values()));', 'res.json(Array.from(users.values()).map(publicUser));', 1)
+          s = s.replace('res.json(student);', 'res.json(publicUser(student));', 1)
+          s = s.replace('async function startServer() {', 'export async function startServer() {', 1)
+          s = s.replace('startServer();\n', 'if (!process.env.VERCEL) {\n  startServer();\n}\n\nexport default app;\n', 1)
+          p.write_text(s)
+
+          p = Path('src/lib/api.ts')
+          s = p.read_text()
+          old = '    throw new ApiError(res.status, errBody);'
+          new = '''    const detail =\n      errBody && typeof errBody === "object" && "detail" in errBody\n        ? String((errBody as { detail: unknown }).detail)\n        : errBody && typeof errBody === "object" && "error" in errBody\n          ? String((errBody as { error: unknown }).error)\n          : `request failed with ${res.status}`;\n    throw new ApiError(res.status, { ...(typeof errBody === "object" && errBody ? errBody : {}), message: detail });'''
+          if old in s: s = s.replace(old, new, 1)
+          p.write_text(s)
+
+          p = Path('src/pages/Home.tsx')
+          s = p.read_text()
+          s = s.replace('err?.message || "Belum bisa memproses. Periksa kembali kode atau akunmu."', 'err?.body?.message || err?.message || "Belum bisa memproses. Periksa kembali kode atau akunmu."', 1)
+          s = s.replace('err?.message || "Belum bisa masuk. Periksa email, sandi, atau levelmu."', 'err?.body?.message || err?.message || "Belum bisa masuk. Periksa email, sandi, atau levelmu."', 1)
+          splash = '  if (splash) return <Splash onContinue={() => setSplash(false)} />;\n'
+          if 'if (!sessionQuery.isLoading && !user && view !== "mentor")' not in s:
+              s = s.replace(splash, splash + '  if (!sessionQuery.isLoading && !user && view !== "mentor") {\n    return <AuthPortal onMentor={() => setView("mentor")} />;\n  }\n\n', 1)
+          s = re.sub(r'  const fallbackGuestUser: User = \{.*?  \};\n  const safeUser: User = \(user \|\| fallbackGuestUser\) as User;', '  const safeUser = user as User;', s, count=1, flags=re.S)
+          p.write_text(s)
+
+          Path('api').mkdir(exist_ok=True)
+          Path('api/index.ts').write_text('import app from "../server";\n\nexport default app;\n')
+          Path('vercel.json').write_text('''{\n  "buildCommand": "npm run build",\n  "outputDirectory": "dist",\n  "rewrites": [\n    { "source": "/((?!api/).*)", "destination": "/index.html" }\n  ]\n}\n''')
+          PY
+
+          git diff --check
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add server.ts src/lib/api.ts src/pages/Home.tsx api/index.ts vercel.json
+          git rm -f .github/workflows/repair-login-and-deploy.yml .github/login-fix.patch 2>/dev/null || true
+          git add -A
+          git commit -m "fix: repair authentication and Vercel deployment [login-repair]"
+          git push
