@@ -1,11 +1,13 @@
-import type { VercelRequest, VercelResponse } from "@vercel/node";
-
-export default function handler(req: VercelRequest, res: VercelResponse) {
+export default function handler(req: any, res: any) {
   if (req.method !== "POST") {
     return res.status(405).json({ detail: "Method not allowed" });
   }
 
-  const raw = typeof req.body === "string" ? JSON.parse(req.body || "{}") : (req.body || {});
+  let raw: any = req.body || {};
+  if (typeof raw === "string") {
+    try { raw = JSON.parse(raw || "{}"); } catch { raw = {}; }
+  }
+
   const code = String(raw.code || "").trim().toUpperCase();
 
   if (code === "MLS-MENTOR-2026") {
