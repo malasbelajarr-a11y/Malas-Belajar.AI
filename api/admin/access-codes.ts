@@ -1,15 +1,18 @@
 export default function handler(req: any, res: any) {
-  if (req.method !== "POST") {
-    return res.status(405).json({ detail: "Method not allowed" });
-  }
+  if (req.method !== "POST") return res.status(405).json({ detail: "Method not allowed" });
 
   let body: any = req.body || {};
   if (typeof body === "string") {
-    try {
-      body = JSON.parse(body || "{}");
-    } catch {
-      body = {};
-    }
+    try { body = JSON.parse(body || "{}"); } catch { body = {}; }
+  }
+
+  const mentorCode = String(body.mentor_code || "").trim().toUpperCase();
+  const validMentorCodes = [
+    "MLS-MENTOR-2026", "MENTOR-MLS", "RODI2026", "MALASBELAJAR",
+    "MLS2026", "ADMIN", "MENTOR",
+  ];
+  if (!validMentorCodes.includes(mentorCode)) {
+    return res.status(401).json({ detail: "Kode mentor tidak cocok." });
   }
 
   const level = ["nguli", "mandor", "supervisor"].includes(body.level)
