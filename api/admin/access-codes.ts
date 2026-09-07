@@ -1,3 +1,5 @@
+import { generateAccessCode } from "../../src/lib/accessCode";
+
 export default function handler(req: any, res: any) {
   if (req.method !== "POST") return res.status(405).json({ detail: "Method not allowed" });
 
@@ -19,11 +21,10 @@ export default function handler(req: any, res: any) {
     ? body.level
     : "nguli";
   const count = Math.min(20, Math.max(1, Number(body.count) || 3));
-  const prefix = level === "nguli" ? "NGU" : level === "mandor" ? "MAN" : "SPV";
 
   const generated = Array.from({ length: count }, (_, i) => ({
     id: `code-${Date.now()}-${i}-${Math.random().toString(36).slice(2, 7)}`,
-    code: `MLS-${prefix}-${Math.floor(1000 + Math.random() * 9000)}`,
+    code: generateAccessCode(level),
     level,
     used: false,
     used_by: "",
