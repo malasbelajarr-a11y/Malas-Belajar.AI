@@ -1,12 +1,19 @@
+function decodeToken(token: string) {
+  try {
+    const user = JSON.parse(Buffer.from(token, "base64url").toString("utf8"));
+    if (!user?.id || !user?.name || !user?.email || !user?.level) return null;
+    if (!user.active) return null;
+    return user;
+  } catch {
+    return null;
+  }
+}
+
 export default function handler(req: any, res: any) {
   const cookie = String(req.headers?.cookie || "");
   const headerId = String(req.headers?.["x-mls-session"] || "");
   const match = cookie.match(/(?:^|;\s*)mls_session=([^;]+)/);
-  const id = headerId || (match ? decodeURIComponent(match[1]) : "");
-  const users: Record<string, any> = {
-    "usr-demo-1": { id: "usr-demo-1", name: "Pejuang SNBT 2026", email: "siswa@malasbelajar.id", level: "nguli", active: true },
-    "usr-mandor-1": { id: "usr-mandor-1", name: "Siti Rahma", email: "siti@malasbelajar.id", level: "mandor", active: true },
-    "usr-spv-1": { id: "usr-spv-1", name: "Budi Santoso", email: "budi@malasbelajar.id", level: "supervisor", active: true }
-  };
-  return res.status(200).json(users[id] || null);
+  const token = headerId || (match ? decodeURIComponent(match[1]) : "");
+  const user = decodeToken(token);
+  return res.status(200).json(user || null);
 }
