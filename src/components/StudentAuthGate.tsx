@@ -18,10 +18,19 @@ const levelLabel = {
   supervisor: "Supervisor 🎖️",
 };
 
+function getStoredSession() {
+  if (typeof window === "undefined") return null;
+  const id = localStorage.getItem("mls_user_id");
+  if (!id || id.startsWith("usr-demo-") || id === "usr-mandor-1" || id === "usr-spv-1") {
+    localStorage.removeItem("mls_user_id");
+    localStorage.removeItem("mls_user");
+    return null;
+  }
+  return id;
+}
+
 export default function StudentAuthGate({ children }: { children: ReactNode }) {
-  const [session, setSession] = useState(() =>
-    typeof window !== "undefined" ? localStorage.getItem("mls_user_id") : null,
-  );
+  const [session, setSession] = useState(getStoredSession);
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
   const [code, setCode] = useState("");
