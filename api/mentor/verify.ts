@@ -9,7 +9,7 @@ export default function handler(req: any, res: any) {
   }
 
   const code = String(raw.code || raw.mentor_code || "").trim().toUpperCase();
-  const configured = String(process.env.MENTOR_ACCESS_CODE || "MENTOR").trim().toUpperCase();
+  const configured = "CECEKOKOMLS";
 
   if (code === configured) {
     return res.status(200).json({ valid: true, verified: true, level: "mentor", message: "Kode mentor valid." });
