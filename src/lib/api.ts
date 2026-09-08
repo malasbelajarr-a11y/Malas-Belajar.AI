@@ -2,8 +2,6 @@
 // same code works in dev (Vite proxies /api → :8001) and behind a single origin in prod.
 const BASE = "/api";
 
-// Fields are declared, not constructor parameter properties: tsconfig sets
-// erasableSyntaxOnly, which rejects `constructor(readonly status: number)`.
 export class ApiError extends Error {
   status: number;
   body: unknown;
@@ -25,9 +23,12 @@ async function request<T>(method: string, path: string, body?: JsonBody | FormDa
     headers["Content-Type"] = "application/json";
   }
 
-  // Send session token in header so iframe previews with third-party cookie restrictions stay authenticated
+  // Prefer the signed session token returned by the standalone Vercel auth route.
+  // The legacy mls_user_id is kept as a fallback for older sessions/endpoints.
   const token =
-    typeof window !== "undefined" ? localStorage.getItem("mls_user_id") : null;
+    typeof window !== "undefined"
+      ? localStorage.getItem("mls_session_token") || localStorage.getItem("mls_user_id")
+      : null;
   if (token) {
     headers["Authorization"] = `Bearer ${token}`;
     headers["x-mls-session"] = token;
@@ -40,7 +41,6 @@ async function request<T>(method: string, path: string, body?: JsonBody | FormDa
     body: body === undefined ? undefined : isFormData ? body : JSON.stringify(body),
   });
 
-  // FastAPI reports request-validation failures as 422 with a {detail: [...]} body.
   if (!res.ok) {
     const errBody = await res.json().catch(() => null);
     const detail =
@@ -49,15 +49,16 @@ async function request<T>(method: string, path: string, body?: JsonBody | FormDa
         : errBody && typeof errBody === "object" && "error" in errBody
           ? String((errBody as { error: unknown }).error)
           : `request failed with ${res.status}`;
-    throw new ApiError(res.status, { ...(typeof errBody === "object" && errBody ? errBody : {}), message: detail });
+    throw new ApiError(res.status, {
+      ...(typeof errBody === "object" && errBody ? errBody : {}),
+      message: detail,
+    });
   }
 
   if (res.status === 204) return undefined as T;
   return (await res.json()) as T;
 }
 
-// The response type is yours to declare: nothing infers across the Python boundary, so a
-// TS interface here mirrors the endpoint's Pydantic model by hand — keep the two in sync.
 export const apiGet = <T>(path: string) => request<T>("GET", path);
 export const apiPost = <T>(path: string, body?: JsonBody) => request<T>("POST", path, body ?? null);
 export const apiPut = <T>(path: string, body?: JsonBody) => request<T>("PUT", path, body ?? null);
