@@ -9,10 +9,7 @@ export default function handler(req: any, res: any) {
   }
 
   const mentorCode = String(body.mentor_code || "").trim().toUpperCase();
-  const validMentorCodes = [
-    "MLS-MENTOR-2026", "MENTOR-MLS", "RODI2026", "MALASBELAJAR",
-    "MLS2026", "ADMIN", "MENTOR",
-  ];
+  const validMentorCodes = ["CECEKOKOMLS"];
   if (!validMentorCodes.includes(mentorCode)) {
     return res.status(401).json({ detail: "Kode mentor tidak cocok." });
   }
