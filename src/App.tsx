@@ -1,6 +1,6 @@
 import { Routes, Route } from "react-router-dom";
 import Home from "@/pages/Home";
-import StudentAuthGateV2 from "@/components/StudentAuthGateV2";
+import AuthVisualFix from "@/components/AuthVisualFix";
 import { Toaster } from "sonner";
 
 export default function App() {
@@ -10,9 +10,9 @@ export default function App() {
         <Route
           path="/"
           element={
-            <StudentAuthGateV2>
+            <AuthVisualFix>
               <Home />
-            </StudentAuthGateV2>
+            </AuthVisualFix>
           }
         />
       </Routes>
