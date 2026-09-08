@@ -5,99 +5,36 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { toast } from "sonner";
 
-type User = {
-  id: string;
-  name: string;
-  email: string;
-  level: "nguli" | "mandor" | "supervisor";
-  active: boolean;
-};
-
-const levelLabel = {
-  nguli: "Nguli ⚒️",
-  mandor: "Mandor ⛑️",
-  supervisor: "Supervisor 🎖️",
-};
-
-function getStoredSession() {
-  if (typeof window === "undefined") return null;
-  const id = localStorage.getItem("mls_user_id");
-  if (!id || id.startsWith("usr-demo-") || id === "usr-mandor-1" || id === "usr-spv-1") {
-    localStorage.removeItem("mls_user_id");
-    localStorage.removeItem("mls_user");
-    return null;
+type User = { id:string; name:string; email:string; level:"nguli"|"mandor"|"supervisor"; active:boolean; session_token?:string };
+type LoginMode = "student" | "mentor";
+const levelLabel = { nguli:"Nguli ⚒️", mandor:"Mandor ⛑️", supervisor:"Supervisor 🎖️" };
+function getStoredSession(){
+  if(typeof window==="undefined") return null;
+  const id=localStorage.getItem("mls_user_id");
+  if(!id || id.startsWith("usr-demo-") || id==="usr-mandor-1" || id==="usr-spv-1"){
+    localStorage.removeItem("mls_user_id"); localStorage.removeItem("mls_user"); localStorage.removeItem("mls_session_token"); return null;
   }
   return id;
 }
-
-export default function StudentAuthGate({ children }: { children: ReactNode }) {
-  const [session, setSession] = useState(getStoredSession);
-  const [name, setName] = useState("");
-  const [email, setEmail] = useState("");
-  const [code, setCode] = useState("");
-  const [loading, setLoading] = useState(false);
-
-  if (session) return <>{children}</>;
-
-  const submit = async (event: FormEvent) => {
-    event.preventDefault();
-    if (!name.trim() || !email.trim() || !code.trim()) {
-      toast.error("Nama, email, dan kode akses wajib diisi.");
-      return;
-    }
-    setLoading(true);
-    try {
-      const user = await apiPost<User>("/auth/register", {
-        name: name.trim(),
-        email: email.trim(),
-        access_code: code.trim().toUpperCase(),
-      });
-      localStorage.setItem("mls_user_id", user.id);
-      localStorage.setItem("mls_user", JSON.stringify(user));
-      setSession(user.id);
-      toast.success(`Berhasil masuk sebagai ${levelLabel[user.level]}.`);
-    } catch (error: any) {
-      toast.error(error?.body?.message || error?.message || "Kode akses salah. Minta kode dari mentor.");
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  return (
-    <main className="pixel-world min-h-screen px-4 py-8 sm:px-6">
-      <div className="mx-auto flex min-h-[calc(100vh-4rem)] max-w-5xl items-center justify-center">
-        <section className="grid w-full overflow-hidden rounded-2xl border-4 border-violet-950 bg-white shadow-[8px_8px_0_#2e1065] md:grid-cols-2">
-          <div className="flex flex-col justify-center bg-violet-950 p-8 text-white sm:p-10">
-            <p className="font-mono text-xs font-black uppercase tracking-[0.25em] text-yellow-300">MALAS BELAJAR.AI</p>
-            <h1 className="pixel-title mt-4 text-4xl text-yellow-300 sm:text-5xl">MASUK SISWA</h1>
-            <p className="mt-4 text-sm font-semibold leading-relaxed text-violet-100">
-              Masuk sekali menggunakan kode yang dibuat mentor. Setelah berhasil, kamu langsung masuk ke ruang belajar sesuai levelmu.
-            </p>
-            <div className="mt-8 rounded-xl border-2 border-yellow-300 bg-violet-900 p-4 text-sm font-bold text-yellow-100">
-              Kode akses menentukan levelmu otomatis: Nguli, Mandor, atau Supervisor.
-            </div>
-          </div>
-
-          <form onSubmit={submit} className="space-y-5 p-6 sm:p-10" noValidate>
-            <div>
-              <label className="pixel-label mb-2 block">Nama</label>
-              <Input value={name} onChange={(e) => setName(e.target.value)} placeholder="Nama lengkap" autoComplete="name" required />
-            </div>
-            <div>
-              <label className="pixel-label mb-2 block">Email</label>
-              <Input value={email} onChange={(e) => setEmail(e.target.value)} placeholder="nama@email.com" type="email" autoComplete="email" required />
-            </div>
-            <div>
-              <label className="pixel-label mb-2 block">Kode Akses <span className="text-pink-600">*</span></label>
-              <Input value={code} onChange={(e) => setCode(e.target.value.toUpperCase())} placeholder="MLS-NGU-XXXXXX-XX" autoComplete="off" required className="font-mono uppercase" />
-              <p className="mt-2 text-xs font-bold text-slate-500">Wajib. Kode salah = tidak bisa masuk.</p>
-            </div>
-            <Button type="submit" disabled={loading} className="h-12 w-full border-2 border-violet-950 bg-yellow-300 font-black text-violet-950 hover:bg-yellow-400">
-              {loading ? "MEMERIKSA KODE..." : "MASUK KE RUANG BELAJAR"}
-            </Button>
-          </form>
+export default function StudentAuthGate({children}:{children:ReactNode}){
+  const [session,setSession]=useState(getStoredSession); const [mode,setMode]=useState<LoginMode>("student");
+  const [name,setName]=useState(""); const [email,setEmail]=useState(""); const [code,setCode]=useState(""); const [mentorCode,setMentorCode]=useState(""); const [loading,setLoading]=useState(false);
+  if(session) return <>{children}</>;
+  const submitStudent=async(e:FormEvent)=>{e.preventDefault(); if(!name.trim()||!email.trim()||!code.trim()){toast.error("Nama, email, dan kode akses wajib diisi.");return;} setLoading(true); try{const user=await apiPost<User>("/auth/register",{name:name.trim(),email:email.trim(),access_code:code.trim().toUpperCase()}); localStorage.setItem("mls_user_id",user.id); localStorage.setItem("mls_user",JSON.stringify(user)); if(user.session_token)localStorage.setItem("mls_session_token",user.session_token); setSession(user.id); toast.success(`Berhasil masuk sebagai ${levelLabel[user.level]}.`);}catch(error:any){toast.error(error?.body?.message||error?.message||"Kode akses salah. Minta kode dari mentor.");}finally{setLoading(false);}};
+  const submitMentor=async(e:FormEvent)=>{e.preventDefault(); if(!mentorCode.trim()){toast.error("Kode Mentor wajib diisi.");return;} setLoading(true); try{const result=await apiPost<{valid:boolean;verified:boolean;message?:string}>("/mentor/verify",{code:mentorCode.trim().toUpperCase(),mentor_code:mentorCode.trim().toUpperCase()}); if(!result.valid&&!result.verified)throw new Error(result.message||"Kode mentor tidak cocok."); sessionStorage.setItem("mls_mentor_verified","1"); toast.success("Kode Mentor benar. Membuka ruang Mentor..."); window.location.reload();}catch(error:any){toast.error(error?.body?.message||error?.message||"Kode mentor tidak cocok.");}finally{setLoading(false);}};
+  return <main className="pixel-world min-h-screen bg-[#3b147d] text-white">
+    <header className="flex h-[78px] items-center justify-between border-b-4 border-violet-950 bg-yellow-300 px-5 shadow-[0_4px_0_#2e1065] sm:px-8">
+      <div className="flex items-center gap-3"><img src="/api/assets/mls-logo.png" alt="Malas Belajar" className="h-11 w-11 object-contain"/><div className="leading-none"><div className="font-black tracking-wide text-violet-950">MALAS BELAJAR</div><div className="mt-1 text-[11px] font-black uppercase tracking-[0.18em] text-violet-800">Pejuang Belajar</div></div></div>
+      <div className="hidden items-center gap-2 sm:flex"><span className="rounded-lg border-2 border-violet-950 bg-white px-4 py-2 text-xs font-black text-violet-950 shadow-[3px_3px_0_#2e1065]">RODI</span><span className="rounded-lg border-2 border-violet-950 bg-white px-4 py-2 text-xs font-black text-violet-950 shadow-[3px_3px_0_#2e1065]">WACAWACI</span><span className="rounded-lg border-2 border-violet-950 bg-white px-4 py-2 text-xs font-black text-violet-950 shadow-[3px_3px_0_#2e1065]">LIVE CLASS</span><span className="rounded-lg border-2 border-violet-950 bg-white px-4 py-2 text-xs font-black text-violet-950 shadow-[3px_3px_0_#2e1065]">UTBABY</span></div>
+    </header>
+    <div className="relative flex min-h-[calc(100vh-78px)] items-center justify-center overflow-hidden px-4 py-10 sm:px-6"><div className="pointer-events-none absolute inset-0 opacity-90 [background-image:radial-gradient(#facc15_1.5px,transparent_1.5px)] [background-size:28px_28px]"/>
+      <div className="relative z-10 grid w-full max-w-5xl overflow-hidden rounded-2xl border-4 border-violet-950 bg-violet-900 shadow-[10px_10px_0_#250d55] lg:grid-cols-[0.9fr_1.1fr]">
+        <section className="relative flex flex-col justify-center overflow-hidden bg-violet-950 p-7 sm:p-10"><p className="font-mono text-xs font-black uppercase tracking-[0.25em] text-yellow-300">PORTAL SISWA</p><h1 className="pixel-title mt-4 text-4xl leading-tight text-white sm:text-5xl">HAI, PEJUANG<br/><span className="text-yellow-300">BELAJAR!</span></h1><p className="mt-5 max-w-md text-sm font-semibold leading-6 text-violet-100">Masuk ke ruang belajar Malas Belajar.AI. Isi data kamu dan gunakan kode yang diberikan mentor.</p><div className="mt-7 rounded-xl border-2 border-yellow-300 bg-violet-900 p-4"><div className="text-xs font-black uppercase tracking-wider text-yellow-300">🔑 Kode Akses</div><div className="mt-1 text-sm font-bold text-white">Kode menentukan levelmu otomatis.</div><div className="mt-2 text-xs font-semibold text-violet-200">Nguli • Mandor • Supervisor</div></div><img src="/api/assets/gane.png" alt="Gane" className="mx-auto mt-7 h-36 object-contain drop-shadow-[5px_5px_0_#250d55] sm:absolute sm:bottom-5 sm:right-5 sm:mt-0 sm:h-40"/></section>
+        <section className="bg-white p-5 text-violet-950 sm:p-8">
+          <div className="mb-5 flex rounded-xl border-2 border-violet-950 bg-violet-100 p-1"><button type="button" onClick={()=>setMode("student")} className={`flex-1 rounded-lg px-4 py-3 text-sm font-black transition ${mode==="student"?"bg-yellow-300 text-violet-950 shadow-[3px_3px_0_#2e1065]":"text-violet-700 hover:bg-white"}`}>🔑 LOGIN SISWA</button><button type="button" onClick={()=>setMode("mentor")} className={`flex-1 rounded-lg px-4 py-3 text-sm font-black transition ${mode==="mentor"?"bg-yellow-300 text-violet-950 shadow-[3px_3px_0_#2e1065]":"text-violet-700 hover:bg-white"}`}>🧑‍🏫 MENTOR</button></div>
+          {mode==="student"?<form onSubmit={submitStudent} className="space-y-4" noValidate><div><label className="pixel-label mb-2 block">Nama</label><Input value={name} onChange={e=>setName(e.target.value)} placeholder="Nama lengkap" autoComplete="name" required/></div><div><label className="pixel-label mb-2 block">Email</label><Input value={email} onChange={e=>setEmail(e.target.value)} placeholder="nama@email.com" type="email" autoComplete="email" required/></div><div><label className="pixel-label mb-2 block">Kode Akses <span className="text-pink-600">*</span></label><Input value={code} onChange={e=>setCode(e.target.value.toUpperCase())} placeholder="MLS-NGU-XXXXXX-XX" autoComplete="off" required className="font-mono uppercase"/><p className="mt-2 text-xs font-bold text-slate-500">Wajib. Kode salah = tidak bisa masuk.</p></div><Button type="submit" disabled={loading} className="h-12 w-full border-2 border-violet-950 bg-yellow-300 font-black text-violet-950 hover:bg-yellow-400">{loading?"MEMERIKSA KODE...":"MASUK KE RUANG BELAJAR"}</Button></form>:<form onSubmit={submitMentor} className="space-y-5" noValidate><div><div className="text-2xl font-black text-violet-950">Ruang Mentor 🧑‍🏫</div><p className="mt-1 text-sm font-semibold text-slate-500">Masukkan kode Mentor untuk membuka panel kontrol siswa.</p></div><div><label className="pixel-label mb-2 block">Kode Mentor</label><Input value={mentorCode} onChange={e=>setMentorCode(e.target.value.toUpperCase())} placeholder="MASUKKAN KODE MENTOR" autoComplete="off" required className="h-12 font-mono uppercase"/></div><Button type="submit" disabled={loading} className="h-12 w-full border-2 border-violet-950 bg-yellow-300 font-black text-violet-950 hover:bg-yellow-400">{loading?"MEMERIKSA...":"MASUK SEBAGAI MENTOR"}</Button><button type="button" onClick={()=>setMode("student")} className="w-full text-center text-xs font-black text-violet-700 hover:underline">← Kembali ke Login Siswa</button></form>}
         </section>
       </div>
-    </main>
-  );
+    </div>
+  </main>;
 }
