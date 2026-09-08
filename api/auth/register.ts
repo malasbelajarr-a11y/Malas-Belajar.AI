@@ -1,6 +1,6 @@
 import { verifyAccessCode } from "../../src/lib/accessCode";
 
-function encodeToken(user: { id: string; name: string; email: string; level: string }) {
+function encodeToken(user: { id: string; name: string; email: string; level: string; active: boolean }) {
   return Buffer.from(JSON.stringify(user), "utf8").toString("base64url");
 }
 
@@ -32,5 +32,5 @@ export default function handler(req: any, res: any) {
   };
   const token = encodeToken(user);
   res.setHeader("Set-Cookie", `mls_session=${encodeURIComponent(token)}; Path=/; Max-Age=2592000; HttpOnly; SameSite=Lax; Secure`);
-  return res.status(201).json(user);
+  return res.status(201).json({ ...user, session_token: token });
 }
