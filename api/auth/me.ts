@@ -1,6 +1,6 @@
 function decodeToken(token: string) {
   try {
-    const user = JSON.parse(Buffer.from(token, "base64url").toString("utf8"));
+    const user = JSON.parse(decodeURIComponent(token));
     if (!user?.id || !user?.name || !user?.email || !user?.level) return null;
     if (!user.active) return null;
     return user;
