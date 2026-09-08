@@ -8,11 +8,12 @@ export default function handler(req: any, res: any) {
     try { raw = JSON.parse(raw || "{}"); } catch { raw = {}; }
   }
 
-  const code = String(raw.code || "").trim().toUpperCase();
+  const code = String(raw.code || raw.mentor_code || "").trim().toUpperCase();
+  const configured = String(process.env.MENTOR_ACCESS_CODE || "MENTOR").trim().toUpperCase();
 
-  if (code === "MLS-MENTOR-2026") {
-    return res.status(200).json({ valid: true, level: "mentor", message: "Kode mentor valid." });
+  if (code === configured) {
+    return res.status(200).json({ valid: true, verified: true, level: "mentor", message: "Kode mentor valid." });
   }
 
-  return res.status(401).json({ valid: false, detail: "Kode mentor tidak cocok." });
+  return res.status(401).json({ valid: false, verified: false, detail: "Kode mentor tidak cocok." });
 }
