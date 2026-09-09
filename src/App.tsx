@@ -4,6 +4,7 @@ import StudentAuth from "@/pages/StudentAuth";
 import AuthVisualFix from "@/components/AuthVisualFix";
 import LockerSubtestFix from "@/components/LockerSubtestFix";
 import MentorContentFix from "@/components/MentorContentFix";
+import HideOldMentorFix from "@/components/HideOldMentorFix";
 import { Toaster } from "sonner";
 
 export default function App() {
@@ -16,6 +17,7 @@ export default function App() {
       </Routes>
       <LockerSubtestFix />
       <MentorContentFix />
+      <HideOldMentorFix />
       <Toaster richColors position="top-right" />
     </>
   );
