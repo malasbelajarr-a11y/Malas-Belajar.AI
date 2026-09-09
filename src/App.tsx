@@ -5,6 +5,7 @@ import AuthVisualFix from "@/components/AuthVisualFix";
 import LockerSubtestFix from "@/components/LockerSubtestFix";
 import HideOldMentorFix from "@/components/HideOldMentorFix";
 import WacawaciUploadFix from "@/components/WacawaciUploadFix";
+import MentorContentManagerFix from "@/components/MentorContentManagerFix";
 import { Toaster } from "sonner";
 
 export default function App() {
@@ -18,6 +19,7 @@ export default function App() {
       <LockerSubtestFix />
       <HideOldMentorFix />
       <WacawaciUploadFix />
+      <MentorContentManagerFix />
       <Toaster richColors position="top-right" />
     </>
   );
