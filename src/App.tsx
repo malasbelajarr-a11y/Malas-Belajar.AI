@@ -3,6 +3,8 @@ import Home from "@/pages/Home";
 import StudentAuth from "@/pages/StudentAuth";
 import AuthVisualFix from "@/components/AuthVisualFix";
 import LockerSubtestFix from "@/components/LockerSubtestFix";
+import HideOldMentorFix from "@/components/HideOldMentorFix";
+import WacawaciUploadFix from "@/components/WacawaciUploadFix";
 import { Toaster } from "sonner";
 
 export default function App() {
@@ -14,6 +16,8 @@ export default function App() {
         <Route path="/login" element={<StudentAuth />} />
       </Routes>
       <LockerSubtestFix />
+      <HideOldMentorFix />
+      <WacawaciUploadFix />
       <Toaster richColors position="top-right" />
     </>
   );
