@@ -25,18 +25,27 @@ const resources: Resource[] = [
 ];
 
 export default function handler(req: any, res: any) {
-  if (req.method === "GET") {
-    return res.status(200).json(resources);
+  if (req.method === "GET") return res.status(200).json(resources);
+
+  if (req.method === "DELETE") {
+    const mentorCode = String(req.query?.mentor_code || req.body?.mentor_code || req.body?.code || "").trim().toUpperCase();
+    if (mentorCode !== "CECEKOKOMLS") return res.status(401).json({ detail: "Kode mentor tidak cocok." });
+    const id = String(req.query?.id || req.body?.id || "").trim();
+    const index = resources.findIndex((r) => r.id === id);
+    if (index < 0) return res.status(404).json({ detail: "Materi tidak ditemukan." });
+    const [deleted] = resources.splice(index, 1);
+    return res.status(200).json({ ok: true, deleted });
   }
 
-  if (req.method !== "POST") {
-    return res.status(405).json({ detail: "Method not allowed" });
-  }
+  if (req.method !== "POST") return res.status(405).json({ detail: "Method not allowed" });
 
   let body: any = req.body || {};
   if (typeof body === "string") {
     try { body = JSON.parse(body || "{}"); } catch { body = {}; }
   }
+
+  const mentorCode = String(body.mentor_code || body.code || "").trim().toUpperCase();
+  if (mentorCode !== "CECEKOKOMLS") return res.status(401).json({ detail: "Kode mentor tidak cocok." });
 
   const validLevels = ["nguli", "mandor", "supervisor"];
   const validKinds = ["video", "module"];
@@ -58,5 +67,5 @@ export default function handler(req: any, res: any) {
   };
 
   resources.unshift(resource);
-  return res.status(200).json(resource);
+  return res.status(201).json(resource);
 }
