@@ -41,6 +41,16 @@ export default function handler(req: any, res: any) {
     return res.status(200).json(result);
   }
 
+  if (req.method === "DELETE") {
+    const mentorCode = String(req.query?.mentor_code || req.body?.mentor_code || req.body?.code || "").trim().toUpperCase();
+    if (mentorCode !== "CECEKOKOMLS") return res.status(401).json({ detail: "Kode mentor tidak cocok." });
+    const id = String(req.query?.id || req.body?.id || "").trim();
+    const index = questions.findIndex((q) => q.id === id);
+    if (index < 0) return res.status(404).json({ detail: "Soal tidak ditemukan." });
+    const [deleted] = questions.splice(index, 1);
+    return res.status(200).json({ ok: true, deleted });
+  }
+
   if (req.method !== "POST") return res.status(405).json({ detail: "Method not allowed" });
 
   let body: any = req.body || {};
