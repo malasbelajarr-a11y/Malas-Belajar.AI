@@ -22,17 +22,14 @@ const readAsDataUrl = (file: File) =>
   });
 
 function ensureSubtestSelector() {
-  const kind = document.querySelector<HTMLSelectElement>(
-    '[data-testid="admin-resource-kind-select"]',
-  );
+  if (document.querySelector('[data-testid="mentor-subtest-select"]')) return;
+  const kind = document.querySelector<HTMLSelectElement>('[data-testid="admin-resource-kind-select"]');
   if (!kind || document.querySelector('[data-testid="admin-resource-subtest-select"]')) return;
   const parent = kind.parentElement;
   if (!parent?.parentElement) return;
-
   const label = document.createElement("div");
   label.textContent = "LOKER SUBTES";
   label.style.cssText = "font-size:11px;font-weight:900;color:#2e1065;margin:8px 0 5px;text-transform:uppercase";
-
   const select = document.createElement("select");
   select.setAttribute("data-testid", "admin-resource-subtest-select");
   select.setAttribute("aria-label", "Loker subtes Wacawaci");
@@ -63,7 +60,7 @@ export default function WacawaciUploadFix() {
       const input = (testid: string) => document.querySelector<HTMLInputElement>(`[data-testid="${testid}"]`);
       const kind = document.querySelector<HTMLSelectElement>('[data-testid="admin-resource-kind-select"]');
       const level = document.querySelector<HTMLSelectElement>('[data-testid="admin-content-level-select"]');
-      const subtest = document.querySelector<HTMLSelectElement>('[data-testid="admin-resource-subtest-select"]');
+      const subtest = document.querySelector<HTMLSelectElement>('[data-testid="mentor-subtest-select"], [data-testid="admin-resource-subtest-select"]');
       const title = input("admin-resource-title-input")?.value.trim() || "";
       const description = document.querySelector<HTMLTextAreaElement>('[data-testid="admin-resource-description-input"]')?.value.trim() || "";
       const url = input("admin-resource-url-input")?.value.trim() || "";
@@ -74,14 +71,8 @@ export default function WacawaciUploadFix() {
 
       let resourceUrl = url;
       if (!resourceUrl && file) {
-        if (file.size > 3_000_000) {
-          return toast.error("File terlalu besar untuk upload langsung. Isi URL Google Drive/YouTube pada kolom URL.");
-        }
-        try {
-          resourceUrl = await readAsDataUrl(file);
-        } catch {
-          return toast.error("File tidak bisa dibaca.");
-        }
+        if (file.size > 3_000_000) return toast.error("File terlalu besar untuk upload langsung. Isi URL Google Drive/YouTube pada kolom URL.");
+        try { resourceUrl = await readAsDataUrl(file); } catch { return toast.error("File tidak bisa dibaca."); }
       }
 
       const originalText = button.textContent || "PUBLIKASIKAN";
@@ -107,7 +98,6 @@ export default function WacawaciUploadFix() {
         });
         const body = await response.json().catch(() => ({}));
         if (!response.ok) throw new Error(body?.detail || body?.error || `Gagal (${response.status})`);
-
         const selectedLabel = SUBTESTS.find(([id]) => id === chosenSubtest)?.[1] || "loker subtes";
         toast.success(`Materi masuk ke ${selectedLabel}.`);
         const titleInput = input("admin-resource-title-input");
