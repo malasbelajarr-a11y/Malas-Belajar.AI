@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
-import { FileText, Upload, Video, X } from "lucide-react";
+import { FileText, Plus, Upload, Video, X } from "lucide-react";
 import { toast } from "sonner";
 import { apiGet, apiPost, apiUpload } from "@/lib/api";
 
@@ -17,30 +17,16 @@ const SUBTESTS = [
 ] as const;
 
 interface Question {
-  id: string;
-  chapter: string;
-  chapter_label: string;
-  number: number;
-  difficulty: string;
-  prompt: string;
-  answer: string;
-  steps: string[];
+  id: string; chapter: string; chapter_label: string; number: number; difficulty: string;
+  topic: string; prompt: string; answer: string; steps: string[]; options: string[];
+  correct_option: number | null; level: string; trap_tip: string; video_url: string;
 }
-interface Resource {
-  id: string;
-  kind: string;
-  title: string;
-  description: string;
-  url: string;
-  is_public: boolean;
-  created_by: string;
-  level: string;
-  subtest?: string;
-}
+interface Resource { id: string; kind: string; title: string; description: string; url: string; is_public: boolean; created_by: string; level: string; subtest?: string; }
 
 export default function LockerSubtestFix() {
   const [active, setActive] = useState<"rodi" | "wacawaci" | null>(null);
-  const [mentorWacawaci, setMentorWacawaci] = useState(false);
+  const [mentor, setMentor] = useState(false);
+  const [mentorTab, setMentorTab] = useState<"rodi" | "wacawaci">("rodi");
   const [selected, setSelected] = useState("pu");
   const [kind, setKind] = useState<Kind>("video");
   const [questions, setQuestions] = useState<Question[]>([]);
@@ -51,14 +37,25 @@ export default function LockerSubtestFix() {
   const [url, setUrl] = useState("");
   const [file, setFile] = useState<File | null>(null);
   const [level, setLevel] = useState<Level>("nguli");
+  const [prompt, setPrompt] = useState("");
+  const [answer, setAnswer] = useState("");
+  const [topic, setTopic] = useState("");
+  const [difficulty, setDifficulty] = useState("Sedang");
+  const [options, setOptions] = useState(["", "", "", "", ""]);
+  const [correctOption, setCorrectOption] = useState("");
+  const [stepsText, setStepsText] = useState("");
+  const [trapTip, setTrapTip] = useState("");
+  const [videoUrl, setVideoUrl] = useState("");
 
   useEffect(() => {
     const detect = () => {
       const hasRodi = Boolean(document.querySelector('[data-testid="rodi-locker"]'));
       const hasWaca = Boolean(document.querySelector('[data-testid="wacawaci-locker"]'));
-      const hasMentorWacawaciForm = Boolean(document.querySelector('[data-testid="admin-resource-kind-select"]'));
+      const isMentor = Boolean(document.querySelector('[data-testid="admin-resource-kind-select"]')) ||
+        document.body.innerText.includes("BUAT KODE SEKALI PAKAI") ||
+        document.body.innerText.includes("GENERATE 3 KODE");
       setActive(hasRodi ? "rodi" : hasWaca ? "wacawaci" : null);
-      setMentorWacawaci(hasMentorWacawaciForm);
+      setMentor(isMentor);
       const badge = document.querySelector('[data-testid="header-level-badge"]')?.textContent?.toLowerCase() || "";
       if (badge.includes("supervisor")) setLevel("supervisor");
       else if (badge.includes("mandor")) setLevel("mandor");
@@ -71,68 +68,55 @@ export default function LockerSubtestFix() {
   }, []);
 
   useEffect(() => {
-    if (!active && !mentorWacawaci) return;
+    if (!active && !mentor) return;
     setLoading(true);
-    const endpoint = active === "rodi" ? "/rodi/module" : "/wacawaci/resources";
-    apiGet<any>(endpoint)
-      .then((data) => {
-        if (active === "rodi") setQuestions(data?.questions ?? []);
-        else setResources(data ?? []);
-      })
-      .catch(() => {})
-      .finally(() => setLoading(false));
-  }, [active, mentorWacawaci, level]);
+    Promise.all([
+      apiGet<any>("/rodi/module").catch(() => null),
+      apiGet<any>("/rodi/questions").catch(() => []),
+      apiGet<any>("/wacawaci/resources").catch(() => []),
+    ]).then(([module, added, res]) => {
+      setQuestions([...(module?.questions ?? []), ...(Array.isArray(added) ? added : [])]);
+      setResources(Array.isArray(res) ? res : []);
+    }).finally(() => setLoading(false));
+  }, [active, mentor]);
 
-  const visibleQuestions = useMemo(
-    () => questions.filter((q) => q.chapter === selected || q.chapter === "mentor"),
-    [questions, selected],
-  );
-  const visibleResources = useMemo(
-    () => resources.filter((r) => r.kind === kind && (!r.subtest || r.subtest === selected) && (!r.level || r.level === level)),
-    [resources, kind, selected, level],
-  );
+  const visibleQuestions = useMemo(() => questions.filter((q) => q.chapter === selected), [questions, selected]);
+  const visibleResources = useMemo(() => resources.filter((r) => r.kind === kind && (!r.subtest || r.subtest === selected) && (!r.level || r.level === level)), [resources, kind, selected, level]);
 
-  const upload = async () => {
+  const uploadWacawaci = async () => {
     if (!title.trim()) return toast.error("Judul materi wajib diisi.");
     try {
       if (file) {
-        const form = new FormData();
-        form.append("file", file);
-        await apiUpload<Resource>(
-          `/wacawaci/upload?mentor_code=CECEKOKOMLS&kind=${kind}&title=${encodeURIComponent(title)}&description=${encodeURIComponent(description)}&level=${level}&subtest=${selected}`,
-          form,
-        );
+        const form = new FormData(); form.append("file", file);
+        await apiUpload<Resource>(`/wacawaci/upload?mentor_code=CECEKOKOMLS&kind=${kind}&title=${encodeURIComponent(title)}&description=${encodeURIComponent(description)}&level=${level}&subtest=${selected}`, form);
       } else {
-        await apiPost<Resource>("/wacawaci/resources", {
-          mentor_code: "CECEKOKOMLS",
-          kind,
-          title,
-          description,
-          url,
-          is_public: true,
-          level,
-          subtest: selected,
-        });
+        await apiPost<Resource>("/wacawaci/resources", { mentor_code: "CECEKOKOMLS", kind, title, description, url, is_public: true, level, subtest: selected });
       }
-      const fresh = await apiGet<Resource[]>("/wacawaci/resources");
-      setResources(fresh ?? []);
-      setTitle("");
-      setDescription("");
-      setUrl("");
-      setFile(null);
+      const fresh = await apiGet<Resource[]>("/wacawaci/resources"); setResources(fresh ?? []);
+      setTitle(""); setDescription(""); setUrl(""); setFile(null);
       toast.success(`Materi masuk ke ${SUBTESTS.find((s) => s.id === selected)?.label}.`);
-    } catch (e: any) {
-      toast.error(e?.body?.message || e?.message || "Upload gagal.");
-    }
+    } catch (e: any) { toast.error(e?.body?.message || e?.message || "Upload gagal."); }
   };
 
-  if (!active && !mentorWacawaci) return null;
+  const addRodi = async () => {
+    if (!prompt.trim()) return toast.error("Soal wajib diisi.");
+    try {
+      const created = await apiPost<Question>("/rodi/questions", {
+        mentor_code: "CECEKOKOMLS", subtest: selected, level, prompt, answer, topic, difficulty,
+        options: options.filter(Boolean), correct_option: correctOption === "" ? null : Number(correctOption),
+        steps: stepsText.split("\n").map((s) => s.trim()).filter(Boolean), trap_tip: trapTip, video_url: videoUrl,
+      });
+      setQuestions((prev) => [...prev, created]);
+      setPrompt(""); setAnswer(""); setTopic(""); setOptions(["", "", "", "", ""]); setCorrectOption(""); setStepsText(""); setTrapTip(""); setVideoUrl("");
+      toast.success(`Soal berhasil ditambahkan ke ${SUBTESTS.find((s) => s.id === selected)?.label}.`);
+    } catch (e: any) { toast.error(e?.body?.message || e?.message || "Gagal menambah soal."); }
+  };
+
+  if (!active && !mentor) return null;
 
   const closeOverlay = () => {
-    if (mentorWacawaci) {
-      const target = Array.from(document.querySelectorAll("button")).find(
-        (b) => b.textContent?.trim().toLowerCase() === "students",
-      );
+    if (mentor) {
+      const target = Array.from(document.querySelectorAll("button")).find((b) => b.textContent?.trim().toLowerCase() === "students");
       if (target) target.click();
       return;
     }
@@ -143,92 +127,38 @@ export default function LockerSubtestFix() {
   return (
     <div className="fixed inset-0 z-[100] overflow-y-auto bg-pink-50/98 p-4 sm:p-6" data-testid="subtest-fix-overlay">
       <div className="mx-auto max-w-7xl rounded-2xl border-4 border-violet-950 bg-white shadow-[8px_8px_0_#2e1065]">
-        <div className="sticky top-0 z-10 flex items-center justify-between border-b-4 border-violet-950 bg-yellow-300 p-4">
-          <div>
-            <p className="font-mono text-[10px] font-black uppercase tracking-widest text-violet-700">MALAS BELAJAR · 7 SUBTES</p>
-            <h1 className="text-2xl font-black text-violet-950">
-              {mentorWacawaci ? "WACAWACI — UPLOAD PER SUBTES" : active === "rodi" ? "RODI — PILIH LOKER SUBTES" : "WACAWACI — PILIH LOKER SUBTES"}
-            </h1>
-          </div>
-          <button className="rounded-lg border-2 border-violet-950 bg-white p-2" onClick={closeOverlay}>
-            <X />
-          </button>
+        <div className="sticky top-0 z-20 flex items-center justify-between border-b-4 border-violet-950 bg-yellow-300 p-4">
+          <div><p className="font-mono text-[10px] font-black uppercase tracking-widest text-violet-700">MALAS BELAJAR · 7 SUBTES</p><h1 className="text-2xl font-black text-violet-950">{mentor ? "KONTEN MENTOR — 7 SUBTES" : active === "rodi" ? "RODI — PILIH LOKER SUBTES" : "WACAWACI — PILIH LOKER SUBTES"}</h1></div>
+          <button className="rounded-lg border-2 border-violet-950 bg-white p-2" onClick={closeOverlay}><X /></button>
         </div>
 
-        {mentorWacawaci && (
-          <div className="border-b-4 border-violet-950 bg-violet-50 p-5">
-            <div className="grid gap-3 md:grid-cols-2">
-              <select value={selected} onChange={(e) => setSelected(e.target.value)} className="rounded-lg border-2 border-violet-950 bg-white p-3 font-bold">
-                {SUBTESTS.map((s) => <option key={s.id} value={s.id}>{s.label}</option>)}
-              </select>
-              <select value={kind} onChange={(e) => setKind(e.target.value as Kind)} className="rounded-lg border-2 border-violet-950 bg-white p-3 font-bold">
-                <option value="video">Video</option>
-                <option value="module">Modul</option>
-              </select>
-              <input value={title} onChange={(e) => setTitle(e.target.value)} placeholder="Judul materi" className="rounded-lg border-2 border-violet-950 bg-white p-3" />
-              <input value={url} onChange={(e) => setUrl(e.target.value)} placeholder="URL video/PDF (opsional)" className="rounded-lg border-2 border-violet-950 bg-white p-3" />
-              <textarea value={description} onChange={(e) => setDescription(e.target.value)} placeholder="Deskripsi" className="min-h-24 rounded-lg border-2 border-violet-950 bg-white p-3 md:col-span-2" />
-              <input type="file" onChange={(e) => setFile(e.target.files?.[0] ?? null)} className="rounded-lg border-2 border-violet-950 bg-white p-3 md:col-span-2" />
-              <button onClick={upload} className="rounded-lg border-2 border-violet-950 bg-pink-300 px-5 py-3 font-black md:col-span-2">
-                <Upload className="mr-2 inline h-4 w-4" /> UPLOAD KE LOKER SUBTES
-              </button>
-            </div>
+        {mentor && <div className="border-b-4 border-violet-950 bg-white p-4"><div className="flex flex-wrap gap-2"><button onClick={() => setMentorTab("rodi")} className={`rounded-lg border-2 border-violet-950 px-5 py-3 font-black ${mentorTab === "rodi" ? "bg-yellow-300" : "bg-white"}`}><Plus className="mr-1 inline h-4 w-4"/> TAMBAH SOAL RODI</button><button onClick={() => setMentorTab("wacawaci")} className={`rounded-lg border-2 border-violet-950 px-5 py-3 font-black ${mentorTab === "wacawaci" ? "bg-pink-300" : "bg-white"}`}><Upload className="mr-1 inline h-4 w-4"/> TAMBAH WACAWACI</button></div></div>}
+
+        {mentor && mentorTab === "rodi" && <div className="border-b-4 border-violet-950 bg-violet-50 p-5">
+          <div className="mb-4 rounded-xl border-2 border-violet-300 bg-yellow-100 p-3"><b>LANGKAH 1 — PILIH LOKER RODI</b><p className="text-xs">Soal yang kamu tambah akan masuk hanya ke subtes yang dipilih.</p></div>
+          <div className="grid gap-3 md:grid-cols-2">
+            <select value={selected} onChange={(e) => setSelected(e.target.value)} className="rounded-lg border-2 border-violet-950 bg-white p-3 font-bold md:col-span-2">{SUBTESTS.map((s) => <option key={s.id} value={s.id}>{s.label}</option>)}</select>
+            <select value={level} onChange={(e) => setLevel(e.target.value as Level)} className="rounded-lg border-2 border-violet-950 bg-white p-3 font-bold"><option value="nguli">Nguli</option><option value="mandor">Mandor</option><option value="supervisor">Supervisor</option></select>
+            <select value={difficulty} onChange={(e) => setDifficulty(e.target.value)} className="rounded-lg border-2 border-violet-950 bg-white p-3 font-bold"><option>Mudah</option><option>Sedang</option><option>Sulit</option><option>Sangat Sulit</option></select>
+            <input value={topic} onChange={(e) => setTopic(e.target.value)} placeholder="Topik soal" className="rounded-lg border-2 border-violet-950 bg-white p-3" />
+            <input value={answer} onChange={(e) => setAnswer(e.target.value)} placeholder="Jawaban/pembahasan singkat" className="rounded-lg border-2 border-violet-950 bg-white p-3" />
+            <textarea value={prompt} onChange={(e) => setPrompt(e.target.value)} placeholder="Tulis soal di sini..." className="min-h-28 rounded-lg border-2 border-violet-950 bg-white p-3 md:col-span-2" />
+            <div className="md:col-span-2"><p className="mb-2 font-black">Pilihan jawaban A–E</p><div className="grid gap-2 md:grid-cols-2">{options.map((v, i) => <input key={i} value={v} onChange={(e) => setOptions((p) => p.map((x, j) => j === i ? e.target.value : x))} placeholder={`${String.fromCharCode(65 + i)}. pilihan`} className="rounded-lg border-2 border-violet-950 bg-white p-3" />)}</div></div>
+            <select value={correctOption} onChange={(e) => setCorrectOption(e.target.value)} className="rounded-lg border-2 border-violet-950 bg-white p-3 font-bold"><option value="">Jawaban benar (opsional)</option>{options.map((o, i) => <option key={i} value={i}>{String.fromCharCode(65 + i)}{o ? `. ${o}` : ""}</option>)}</select>
+            <input value={videoUrl} onChange={(e) => setVideoUrl(e.target.value)} placeholder="URL video pembahasan (opsional)" className="rounded-lg border-2 border-violet-950 bg-white p-3" />
+            <textarea value={stepsText} onChange={(e) => setStepsText(e.target.value)} placeholder="Langkah pembahasan — satu langkah per baris" className="min-h-24 rounded-lg border-2 border-violet-950 bg-white p-3 md:col-span-2" />
+            <input value={trapTip} onChange={(e) => setTrapTip(e.target.value)} placeholder="Jebakan soal (opsional)" className="rounded-lg border-2 border-violet-950 bg-white p-3 md:col-span-2" />
+            <button onClick={addRodi} className="rounded-lg border-2 border-violet-950 bg-yellow-300 px-5 py-3 font-black md:col-span-2"><Plus className="mr-2 inline h-4 w-4"/> TAMBAH SOAL KE {SUBTESTS.find((s) => s.id === selected)?.label.toUpperCase()}</button>
           </div>
-        )}
+        </div>}
 
-        {active && (
-          <>
-            <div className="grid gap-4 p-5 sm:grid-cols-2 lg:grid-cols-4">
-              {SUBTESTS.map((s, i) => (
-                <button key={s.id} onClick={() => setSelected(s.id)} className={`rounded-xl border-4 border-violet-950 p-4 text-left shadow-[3px_3px_0_#2e1065] ${selected === s.id ? "bg-yellow-300" : "bg-violet-50"}`}>
-                  <span className="font-mono text-xs font-black text-pink-600">0{i + 1}</span>
-                  <p className="mt-2 font-black text-violet-950">{s.label}</p>
-                  <p className="mt-2 text-xs text-slate-600">Buka untuk melihat {active === "rodi" ? "soal" : "modul/video"} subtes ini.</p>
-                </button>
-              ))}
-            </div>
+        {mentor && mentorTab === "wacawaci" && <div className="border-b-4 border-violet-950 bg-violet-50 p-5"><div className="grid gap-3 md:grid-cols-2"><select value={selected} onChange={(e) => setSelected(e.target.value)} className="rounded-lg border-2 border-violet-950 bg-white p-3 font-bold">{SUBTESTS.map((s) => <option key={s.id} value={s.id}>{s.label}</option>)}</select><select value={kind} onChange={(e) => setKind(e.target.value as Kind)} className="rounded-lg border-2 border-violet-950 bg-white p-3 font-bold"><option value="video">Video</option><option value="module">Modul</option></select><input value={title} onChange={(e) => setTitle(e.target.value)} placeholder="Judul materi" className="rounded-lg border-2 border-violet-950 bg-white p-3"/><input value={url} onChange={(e) => setUrl(e.target.value)} placeholder="URL video/PDF (opsional)" className="rounded-lg border-2 border-violet-950 bg-white p-3"/><textarea value={description} onChange={(e) => setDescription(e.target.value)} placeholder="Deskripsi" className="min-h-24 rounded-lg border-2 border-violet-950 bg-white p-3 md:col-span-2"/><input type="file" onChange={(e) => setFile(e.target.files?.[0] ?? null)} className="rounded-lg border-2 border-violet-950 bg-white p-3 md:col-span-2"/><button onClick={uploadWacawaci} className="rounded-lg border-2 border-violet-950 bg-pink-300 px-5 py-3 font-black md:col-span-2"><Upload className="mr-2 inline h-4 w-4"/> UPLOAD KE {SUBTESTS.find((s) => s.id === selected)?.label.toUpperCase()}</button></div></div>}
 
-            <div className="border-t-4 border-violet-950 bg-violet-50 p-5">
-              <div className="flex flex-wrap items-center justify-between gap-3">
-                <div>
-                  <p className="font-mono text-xs font-black text-pink-600">LOKER {selected.toUpperCase()}</p>
-                  <h2 className="text-xl font-black text-violet-950">{SUBTESTS.find((s) => s.id === selected)?.label}</h2>
-                </div>
-                {active === "wacawaci" && (
-                  <div className="flex gap-2">
-                    <button onClick={() => setKind("video")} className={`rounded-lg border-2 border-violet-950 px-4 py-2 font-black ${kind === "video" ? "bg-pink-300" : "bg-white"}`}><Video className="mr-1 inline h-4 w-4" /> VIDEO</button>
-                    <button onClick={() => setKind("module")} className={`rounded-lg border-2 border-violet-950 px-4 py-2 font-black ${kind === "module" ? "bg-yellow-300" : "bg-white"}`}><FileText className="mr-1 inline h-4 w-4" /> MODUL</button>
-                  </div>
-                )}
-              </div>
-              {loading ? (
-                <p className="py-10 text-center font-bold">Memuat isi loker…</p>
-              ) : active === "rodi" ? (
-                <div className="mt-5 grid gap-4 md:grid-cols-2">
-                  {visibleQuestions.length ? visibleQuestions.map((q) => (
-                    <article key={q.id} className="rounded-xl border-2 border-violet-200 bg-white p-4">
-                      <div className="flex justify-between"><b>#{q.number}</b><span className="text-xs font-bold text-pink-600">{q.difficulty}</span></div>
-                      <h3 className="mt-3 font-black text-violet-950">{q.prompt}</h3>
-                      <p className="mt-3 text-xs text-slate-600">Jawaban: {q.answer}</p>
-                      <details className="mt-3"><summary className="cursor-pointer font-black text-violet-700">Lihat pembahasan</summary><div className="mt-2 space-y-1 text-xs text-slate-700">{q.steps?.map((s, i) => <p key={i}>{i + 1}. {s}</p>)}</div></details>
-                    </article>
-                  )) : <p className="py-10 text-center font-bold text-slate-500">Belum ada soal untuk subtes ini.</p>}
-                </div>
-              ) : (
-                <div className="mt-5 grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-                  {visibleResources.length ? visibleResources.map((r) => (
-                    <article key={r.id} className="rounded-xl border-2 border-violet-200 bg-white p-4">
-                      <div className="flex justify-between"><span className="rounded bg-pink-100 px-2 py-1 text-xs font-black">{r.kind}</span><span className="text-[10px] font-black uppercase text-violet-600">{r.level}</span></div>
-                      <h3 className="mt-3 font-black text-violet-950">{r.title}</h3>
-                      <p className="mt-2 text-sm text-slate-600">{r.description}</p>
-                      <a href={r.url} target="_blank" rel="noreferrer" className="mt-4 inline-block font-black text-pink-600 underline">BUKA MATERI →</a>
-                    </article>
-                  )) : <p className="py-10 text-center font-bold text-slate-500">Belum ada materi untuk subtes ini.</p>}
-                </div>
-              )}
-            </div>
-          </>
-        )}
+        {(active || mentor) && <>
+          {!mentor && <div className="grid gap-4 p-5 sm:grid-cols-2 lg:grid-cols-4">{SUBTESTS.map((s, i) => <button key={s.id} onClick={() => setSelected(s.id)} className={`rounded-xl border-4 border-violet-950 p-4 text-left shadow-[3px_3px_0_#2e1065] ${selected === s.id ? "bg-yellow-300" : "bg-violet-50"}`}><span className="font-mono text-xs font-black text-pink-600">0{i + 1}</span><p className="mt-2 font-black text-violet-950">{s.label}</p><p className="mt-2 text-xs text-slate-600">Buka untuk melihat {active === "rodi" ? "soal" : "modul/video"}.</p></button>)}</div>}
+          {(!mentor || mentorTab === "rodi") && <div className="border-t-4 border-violet-950 bg-violet-50 p-5"><div className="mb-4"><p className="font-mono text-xs font-black text-pink-600">LOKER {selected.toUpperCase()}</p><h2 className="text-xl font-black text-violet-950">{SUBTESTS.find((s) => s.id === selected)?.label}</h2></div>{loading ? <p className="py-10 text-center font-bold">Memuat…</p> : <div className="grid gap-4 md:grid-cols-2">{visibleQuestions.length ? visibleQuestions.map((q) => <article key={q.id} className="rounded-xl border-2 border-violet-200 bg-white p-4"><div className="flex justify-between"><b>#{q.number}</b><span className="text-xs font-bold text-pink-600">{q.difficulty}</span></div><p className="mt-3 font-black text-violet-950">{q.prompt}</p>{q.options?.length > 0 && <div className="mt-3 space-y-1 text-sm">{q.options.map((o, i) => <p key={i}>{String.fromCharCode(65 + i)}. {o}</p>)}</div>}<p className="mt-3 text-xs text-slate-600">Jawaban: {q.answer}</p></article>) : <p className="py-10 text-center font-bold text-slate-500">Belum ada soal untuk subtes ini.</p>}</div>}</div>}
+          {(!mentor && active === "wacawaci") && <div className="border-t-4 border-violet-950 bg-violet-50 p-5"><div className="flex gap-2"><button onClick={() => setKind("video")} className={`rounded-lg border-2 border-violet-950 px-4 py-2 font-black ${kind === "video" ? "bg-pink-300" : "bg-white"}`}><Video className="mr-1 inline h-4 w-4"/> VIDEO</button><button onClick={() => setKind("module")} className={`rounded-lg border-2 border-violet-950 px-4 py-2 font-black ${kind === "module" ? "bg-yellow-300" : "bg-white"}`}><FileText className="mr-1 inline h-4 w-4"/> MODUL</button></div><div className="mt-5 grid gap-4 md:grid-cols-2 lg:grid-cols-3">{visibleResources.length ? visibleResources.map((r) => <article key={r.id} className="rounded-xl border-2 border-violet-200 bg-white p-4"><span className="rounded bg-pink-100 px-2 py-1 text-xs font-black">{r.kind}</span><h3 className="mt-3 font-black text-violet-950">{r.title}</h3><p className="mt-2 text-sm text-slate-600">{r.description}</p><a href={r.url} target="_blank" rel="noreferrer" className="mt-4 inline-block font-black text-pink-600 underline">BUKA MATERI →</a></article>) : <p className="py-10 text-center font-bold text-slate-500">Belum ada materi untuk subtes ini.</p>}</div></div>}
+        </>}
       </div>
     </div>
   );
