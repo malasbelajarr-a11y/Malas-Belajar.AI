@@ -1,5 +1,4 @@
 import { useEffect, useState } from "react";
-import { useNavigate } from "react-router-dom";
 import StudentAuth from "@/pages/StudentAuth";
 import { getSessionUserId } from "@/lib/session";
 
@@ -7,21 +6,26 @@ const LOGO = "/api/assets/mls-logo.png";
 const BYPASS_KEY = "mls_student_gate_bypass";
 
 export default function StudentEntryGate() {
-  const navigate = useNavigate();
   const [open, setOpen] = useState(false);
   const [showLogin, setShowLogin] = useState(false);
 
   useEffect(() => {
-    if (getSessionUserId() || localStorage.getItem(BYPASS_KEY) === "1") return;
+    if (getSessionUserId() || sessionStorage.getItem(BYPASS_KEY) === "1") return;
     setOpen(true);
-    const timer = window.setTimeout(() => setShowLogin(true), 900);
-    return () => window.clearTimeout(timer);
+    const splashTimer = window.setTimeout(() => setShowLogin(true), 900);
+    const sessionTimer = window.setInterval(() => {
+      if (getSessionUserId()) setOpen(false);
+    }, 300);
+    return () => {
+      window.clearTimeout(splashTimer);
+      window.clearInterval(sessionTimer);
+    };
   }, []);
 
   if (!open) return null;
 
   const enterMentor = () => {
-    localStorage.setItem(BYPASS_KEY, "1");
+    sessionStorage.setItem(BYPASS_KEY, "1");
     setOpen(false);
   };
 
