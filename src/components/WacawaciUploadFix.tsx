@@ -22,11 +22,13 @@ const readAsDataUrl = (file: File) =>
   });
 
 function ensureSubtestSelector() {
-  if (document.querySelector('[data-testid="mentor-subtest-select"]')) return;
   const kind = document.querySelector<HTMLSelectElement>('[data-testid="admin-resource-kind-select"]');
-  if (!kind || document.querySelector('[data-testid="admin-resource-subtest-select"]')) return;
+  const existing = document.querySelector('[data-testid="admin-resource-subtest-select"]');
+  if (!kind || existing) return;
   const parent = kind.parentElement;
   if (!parent?.parentElement) return;
+  const wrapper = parent.parentElement;
+
   const label = document.createElement("div");
   label.textContent = "LOKER SUBTES";
   label.style.cssText = "font-size:11px;font-weight:900;color:#2e1065;margin:8px 0 5px;text-transform:uppercase";
@@ -40,8 +42,8 @@ function ensureSubtestSelector() {
     option.textContent = text;
     select.appendChild(option);
   });
-  parent.parentElement.insertBefore(label, parent);
-  parent.parentElement.insertBefore(select, parent);
+  wrapper.insertBefore(label, parent);
+  wrapper.insertBefore(select, parent);
 }
 
 export default function WacawaciUploadFix() {
@@ -60,7 +62,7 @@ export default function WacawaciUploadFix() {
       const input = (testid: string) => document.querySelector<HTMLInputElement>(`[data-testid="${testid}"]`);
       const kind = document.querySelector<HTMLSelectElement>('[data-testid="admin-resource-kind-select"]');
       const level = document.querySelector<HTMLSelectElement>('[data-testid="admin-content-level-select"]');
-      const subtest = document.querySelector<HTMLSelectElement>('[data-testid="mentor-subtest-select"], [data-testid="admin-resource-subtest-select"]');
+      const subtest = document.querySelector<HTMLSelectElement>('[data-testid="admin-resource-subtest-select"]');
       const title = input("admin-resource-title-input")?.value.trim() || "";
       const description = document.querySelector<HTMLTextAreaElement>('[data-testid="admin-resource-description-input"]')?.value.trim() || "";
       const url = input("admin-resource-url-input")?.value.trim() || "";
