@@ -1,5 +1,3 @@
-import { supabaseConfigured, supabaseRequest } from "../_lib/supabase";
-
 type Level = "nguli" | "mandor" | "supervisor";
 type Question = {
   id: string;
@@ -32,19 +30,42 @@ const SUBTESTS: Record<string, string> = {
   pm: "Penalaran Matematika (PM)",
 };
 
-function requireConfigured(res: any) {
-  if (supabaseConfigured()) return true;
-  res.status(503).json({ detail: "Penyimpanan belum aktif. Tambahkan SUPABASE_URL dan SUPABASE_SERVICE_ROLE_KEY di Vercel." });
-  return false;
+// Fallback agar upload tetap berfungsi sebelum Supabase dihubungkan.
+const memoryQuestions: Question[] = [];
+
+function hasSupabase() {
+  return Boolean(process.env.SUPABASE_URL && process.env.SUPABASE_SERVICE_ROLE_KEY);
+}
+
+async function supabaseRequest<T = any>(path: string, init: RequestInit = {}): Promise<T> {
+  const url = String(process.env.SUPABASE_URL || "").replace(/\/$/, "");
+  const key = String(process.env.SUPABASE_SERVICE_ROLE_KEY || "");
+  const response = await fetch(`${url}/rest/v1/${path}`, {
+    ...init,
+    headers: {
+      apikey: key,
+      Authorization: `Bearer ${key}`,
+      "Content-Type": "application/json",
+      ...(init.headers || {}),
+    },
+  });
+  const text = await response.text();
+  let body: any = null;
+  try { body = text ? JSON.parse(text) : null; } catch { body = text; }
+  if (!response.ok) throw new Error(body?.message || body?.hint || body?.details || body?.error || `Supabase request failed (${response.status})`);
+  return body as T;
 }
 
 export default async function handler(req: any, res: any) {
-  if (!requireConfigured(res)) return;
-
   try {
     if (req.method === "GET") {
       const chapter = String(req.query?.subtest || req.query?.chapter || "").trim();
       const level = String(req.query?.level || "").trim();
+      if (!hasSupabase()) {
+        return res.status(200).json(memoryQuestions.filter((q) =>
+          (!chapter || q.chapter === chapter) && (!level || q.level === level)
+        ));
+      }
       const filters = ["select=*", "order=created_at.desc"];
       if (chapter) filters.push(`chapter=eq.${encodeURIComponent(chapter)}`);
       if (level) filters.push(`level=eq.${encodeURIComponent(level)}`);
@@ -53,16 +74,22 @@ export default async function handler(req: any, res: any) {
     }
 
     if (req.method === "DELETE") {
-      const code = String(req.query?.mentor_code || req.body?.mentor_code || req.body?.code || "").trim().toUpperCase();
+      let body: any = req.body || {};
+      if (typeof body === "string") { try { body = JSON.parse(body || "{}"); } catch { body = {}; } }
+      const code = String(req.query?.mentor_code || body?.mentor_code || body?.code || "").trim().toUpperCase();
       if (code !== MENTOR_CODE) return res.status(401).json({ detail: "Kode mentor tidak cocok." });
-      const id = String(req.query?.id || req.body?.id || "").trim();
+      const id = String(req.query?.id || body?.id || "").trim();
       if (!id) return res.status(400).json({ detail: "ID soal wajib diisi." });
-      await supabaseRequest(`rodi_questions?id=eq.${encodeURIComponent(id)}`, { method: "DELETE", headers: { Prefer: "return=minimal" } });
+      if (!hasSupabase()) {
+        const index = memoryQuestions.findIndex((item) => item.id === id);
+        if (index >= 0) memoryQuestions.splice(index, 1);
+      } else {
+        await supabaseRequest(`rodi_questions?id=eq.${encodeURIComponent(id)}`, { method: "DELETE", headers: { Prefer: "return=minimal" } });
+      }
       return res.status(200).json({ ok: true, id });
     }
 
     if (req.method !== "POST") return res.status(405).json({ detail: "Method not allowed" });
-
     let body: any = req.body || {};
     if (typeof body === "string") {
       try { body = JSON.parse(body || "{}"); } catch { body = {}; }
@@ -80,7 +107,7 @@ export default async function handler(req: any, res: any) {
       id: `rodi-${chapter}-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`,
       chapter,
       chapter_label: SUBTESTS[chapter],
-      number: Number(body.number) || 1,
+      number: Number(body.number) || memoryQuestions.filter((q) => q.chapter === chapter).length + 1,
       difficulty: String(body.difficulty || "Sedang"),
       topic: String(body.topic || ""),
       prompt: String(body.prompt || "").trim(),
@@ -97,6 +124,10 @@ export default async function handler(req: any, res: any) {
     };
 
     if (!question.prompt) return res.status(400).json({ detail: "Soal wajib diisi." });
+    if (!hasSupabase()) {
+      memoryQuestions.push(question);
+      return res.status(201).json(question);
+    }
 
     const inserted = await supabaseRequest<Question[]>("rodi_questions", {
       method: "POST",
