@@ -1,5 +1,3 @@
-import { supabaseConfigured, supabaseRequest } from "../_lib/supabase";
-
 type Resource = {
   id: string;
   kind: string;
@@ -17,21 +15,52 @@ const validLevels = ["nguli", "mandor", "supervisor"];
 const validKinds = ["video", "module"];
 const validSubtests = ["pu", "ppu", "pbm", "pk", "lit_indo", "lit_inggris", "pm"];
 
-function requireConfigured(res: any) {
-  if (supabaseConfigured()) return true;
-  res.status(503).json({ detail: "Penyimpanan belum aktif. Tambahkan SUPABASE_URL dan SUPABASE_SERVICE_ROLE_KEY di Vercel." });
-  return false;
-}
+// Fallback agar upload tetap berfungsi sebelum Supabase dihubungkan.
+const memoryResources: Resource[] = [
+  {
+    id: "res-demo-pu",
+    kind: "module",
+    title: "Modul Penalaran Umum",
+    description: "Materi dasar dan strategi cepat Penalaran Umum.",
+    url: "https://example.com/modul-pu.pdf",
+    is_public: true,
+    created_by: "Mentor Malas Belajar",
+    level: "nguli",
+    subtest: "pu",
+  },
+];
 
 function mentorCodeFrom(req: any, body?: any) {
   return String(req.query?.mentor_code || body?.mentor_code || body?.code || "").trim().toUpperCase();
 }
 
-export default async function handler(req: any, res: any) {
-  if (!requireConfigured(res)) return;
+function hasSupabase() {
+  return Boolean(process.env.SUPABASE_URL && process.env.SUPABASE_SERVICE_ROLE_KEY);
+}
 
+async function supabaseRequest<T = any>(path: string, init: RequestInit = {}): Promise<T> {
+  const url = String(process.env.SUPABASE_URL || "").replace(/\/$/, "");
+  const key = String(process.env.SUPABASE_SERVICE_ROLE_KEY || "");
+  const response = await fetch(`${url}/rest/v1/${path}`, {
+    ...init,
+    headers: {
+      apikey: key,
+      Authorization: `Bearer ${key}`,
+      "Content-Type": "application/json",
+      ...(init.headers || {}),
+    },
+  });
+  const text = await response.text();
+  let body: any = null;
+  try { body = text ? JSON.parse(text) : null; } catch { body = text; }
+  if (!response.ok) throw new Error(body?.message || body?.hint || body?.details || body?.error || `Supabase request failed (${response.status})`);
+  return body as T;
+}
+
+export default async function handler(req: any, res: any) {
   try {
     if (req.method === "GET") {
+      if (!hasSupabase()) return res.status(200).json(memoryResources);
       const rows = await supabaseRequest<Resource[]>("wacawaci_resources?select=id,kind,title,description,url,is_public,created_by,level,subtest&order=created_at.desc");
       return res.status(200).json(rows || []);
     }
@@ -40,12 +69,16 @@ export default async function handler(req: any, res: any) {
       if (mentorCodeFrom(req) !== MENTOR_CODE) return res.status(401).json({ detail: "Kode mentor tidak cocok." });
       const id = String(req.query?.id || req.body?.id || "").trim();
       if (!id) return res.status(400).json({ detail: "ID materi wajib diisi." });
-      await supabaseRequest(`wacawaci_resources?id=eq.${encodeURIComponent(id)}`, { method: "DELETE", headers: { Prefer: "return=minimal" } });
+      if (!hasSupabase()) {
+        const index = memoryResources.findIndex((item) => item.id === id);
+        if (index >= 0) memoryResources.splice(index, 1);
+      } else {
+        await supabaseRequest(`wacawaci_resources?id=eq.${encodeURIComponent(id)}`, { method: "DELETE", headers: { Prefer: "return=minimal" } });
+      }
       return res.status(200).json({ ok: true, id });
     }
 
     if (req.method !== "POST") return res.status(405).json({ detail: "Method not allowed" });
-
     let body: any = req.body || {};
     if (typeof body === "string") {
       try { body = JSON.parse(body || "{}"); } catch { body = {}; }
@@ -72,6 +105,11 @@ export default async function handler(req: any, res: any) {
       level,
       subtest,
     };
+
+    if (!hasSupabase()) {
+      memoryResources.unshift(resource);
+      return res.status(201).json(resource);
+    }
 
     const inserted = await supabaseRequest<Resource[]>("wacawaci_resources", {
       method: "POST",
