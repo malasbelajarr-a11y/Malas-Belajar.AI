@@ -24,6 +24,35 @@ async function jsonRequest<T>(url: string, options?: RequestInit): Promise<T> {
   return body as T;
 }
 
+function ensureRodiSubtestSelector() {
+  const prompt = document.querySelector('[data-testid="admin-question-prompt-input"]');
+  const level = document.querySelector('[data-testid="level-select"]');
+  const existing = document.querySelector('[data-testid="admin-question-subtest-select"]');
+  if (!prompt || existing) return;
+
+  const anchor = level?.parentElement || prompt.parentElement;
+  if (!anchor?.parentElement) return;
+  const wrapper = anchor.parentElement;
+
+  const label = document.createElement("div");
+  label.textContent = "LOKER SUBTES RODI";
+  label.style.cssText = "font-size:11px;font-weight:900;color:#2e1065;margin:10px 0 5px;text-transform:uppercase";
+
+  const select = document.createElement("select");
+  select.setAttribute("data-testid", "admin-question-subtest-select");
+  select.setAttribute("aria-label", "Loker subtes RODI");
+  select.style.cssText = "width:100%;border:2px solid #2e1065;border-radius:8px;background:#fff;padding:10px;font-weight:800;color:#2e1065;margin-bottom:8px";
+  SUBTESTS.forEach(([id, text]) => {
+    const option = document.createElement("option");
+    option.value = id;
+    option.textContent = text;
+    select.appendChild(option);
+  });
+
+  wrapper.insertBefore(label, anchor);
+  wrapper.insertBefore(select, anchor);
+}
+
 export default function MentorContentManagerFix() {
   const [host, setHost] = useState<HTMLElement | null>(null);
   const [selected, setSelected] = useState("pu");
@@ -59,6 +88,7 @@ export default function MentorContentManagerFix() {
         container.prepend(target);
       }
       setHost(target);
+      ensureRodiSubtestSelector();
     };
     detect();
     const observer = new MutationObserver(detect);
@@ -79,6 +109,8 @@ export default function MentorContentManagerFix() {
       const prompt = (document.querySelector('[data-testid="admin-question-prompt-input"]') as HTMLInputElement | null)?.value?.trim() || "";
       const optionsRaw = (document.querySelector('[data-testid="admin-question-options-input"]') as HTMLTextAreaElement | null)?.value || "";
       const level = (document.querySelector('[data-testid="level-select"]') as HTMLSelectElement | null)?.value || "nguli";
+      const formSubtest = (document.querySelector('[data-testid="admin-question-subtest-select"]') as HTMLSelectElement | null)?.value;
+      const chosenSubtest = formSubtest || selected;
       if (!prompt) return;
       event.preventDefault();
       event.stopPropagation();
@@ -87,10 +119,11 @@ export default function MentorContentManagerFix() {
           setBusy("rodi-upload");
           await jsonRequest("/api/rodi/questions", {
             method: "POST",
-            body: JSON.stringify({ mentor_code: mentorCode, subtest: selected, prompt, options: optionsRaw.split("\n").filter(Boolean).slice(0, 5), correct_option: 0, steps: ["Pembahasan mentor: evaluasi stimulus dan pilih opsi paling tepat."], difficulty: "Aplikasi", level }),
+            body: JSON.stringify({ mentor_code: mentorCode, subtest: chosenSubtest, prompt, options: optionsRaw.split("\n").filter(Boolean).slice(0, 5), correct_option: 0, steps: ["Pembahasan mentor: evaluasi stimulus dan pilih opsi paling tepat."], difficulty: "Aplikasi", level }),
           });
-          toast.success(`Soal masuk ke ${SUBTESTS.find(([id]) => id === selected)?.[1]}.`);
-          (document.querySelector('[data-testid="admin-question-prompt-input"]') as HTMLInputElement | null)?.value && ((document.querySelector('[data-testid="admin-question-prompt-input"]') as HTMLInputElement).value = "");
+          toast.success(`Soal masuk ke ${SUBTESTS.find(([id]) => id === chosenSubtest)?.[1]}.`);
+          const promptInput = document.querySelector('[data-testid="admin-question-prompt-input"]') as HTMLInputElement | null;
+          if (promptInput) promptInput.value = "";
           await refresh();
         } catch (error: any) {
           toast.error(error?.message || "Gagal menambah soal.");
@@ -126,7 +159,7 @@ export default function MentorContentManagerFix() {
         <div>
           <p className="font-mono text-[10px] font-black uppercase tracking-widest text-violet-600">KONTEN MENTOR</p>
           <h2 className="text-lg font-black text-violet-950">Pilih Loker Subtes + Kelola Upload</h2>
-          <p className="text-xs text-slate-500">Pilihan ini dipakai saat menambah soal RODI dan materi Wacawaci.</p>
+          <p className="text-xs text-slate-500">Pilihan ini dipakai sebagai default saat menambah konten.</p>
         </div>
         <select value={selected} onChange={(e) => setSelected(e.target.value)} className="rounded-lg border-2 border-violet-950 bg-yellow-100 px-3 py-2 text-sm font-black" data-testid="mentor-subtest-select">
           {SUBTESTS.map(([id, label]) => <option key={id} value={id}>{label}</option>)}
@@ -137,7 +170,7 @@ export default function MentorContentManagerFix() {
         <div className="rounded-xl border-2 border-violet-200 bg-violet-50 p-3">
           <div className="flex items-center justify-between gap-2"><b className="text-violet-950">RODI TERUPLOAD</b><span className="font-mono text-xs">{rodiItems.length}</span></div>
           <div className="mt-2 max-h-56 space-y-2 overflow-y-auto">
-            {rodiItems.length ? rodiItems.map((item) => <div key={item.id} className="flex items-center justify-between gap-2 rounded-lg border-2 border-violet-200 bg-white p-2"><div className="min-w-0"><p className="truncate text-xs font-black text-violet-950">{item.prompt || item.title}</p><p className="truncate text-[10px] text-slate-500">{subtestLabel(item.chapter)} · {item.level || "nguli"}</p></div><button type="button" onClick={() => remove("rodi", item.id)} disabled={busy === `rodi-${item.id}`} className="shrink-0 rounded-md border-2 border-violet-950 bg-pink-300 p-1.5 text-violet-950"><Trash2 className="h-4 w-4" /></button></div>) : <p className="py-4 text-center text-xs text-slate-500">Belum ada soal RODI tambahan.</p>}
+            {rodiItems.length ? rodiItems.map((item) => <div key={item.id} className="flex items-center justify-between gap-2 rounded-lg border-2 border-violet-200 bg-white p-2"><div className="min-w-0"><p className="truncate text-xs font-black text-violet-950">{item.prompt || item.title}</p><p className="truncate text-[10px] text-slate-500">{subtestLabel(item.chapter || item.subtest)} · {item.level || "nguli"}</p></div><button type="button" onClick={() => remove("rodi", item.id)} disabled={busy === `rodi-${item.id}`} className="shrink-0 rounded-md border-2 border-violet-950 bg-pink-300 p-1.5 text-violet-950"><Trash2 className="h-4 w-4" /></button></div>) : <p className="py-4 text-center text-xs text-slate-500">Belum ada soal RODI tambahan.</p>}
           </div>
         </div>
 
