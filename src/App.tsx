@@ -6,13 +6,18 @@ import LockerSubtestFix from "@/components/LockerSubtestFix";
 import HideOldMentorFix from "@/components/HideOldMentorFix";
 import WacawaciUploadFix from "@/components/WacawaciUploadFix";
 import MentorContentManagerFix from "@/components/MentorContentManagerFix";
+import { getSessionUserId } from "@/lib/session";
 import { Toaster } from "sonner";
+
+function EntryPage() {
+  return getSessionUserId() ? <AuthVisualFix><Home /></AuthVisualFix> : <StudentAuth />;
+}
 
 export default function App() {
   return (
     <>
       <Routes>
-        <Route path="/" element={<AuthVisualFix><Home /></AuthVisualFix>} />
+        <Route path="/" element={<EntryPage />} />
         <Route path="/akun" element={<StudentAuth />} />
         <Route path="/login" element={<StudentAuth />} />
       </Routes>
