@@ -14,67 +14,113 @@ const MENTOR_CODE = "CECEKOKOMLS";
 const validLevels = ["nguli", "mandor", "supervisor"];
 const validKinds = ["video", "module"];
 const validSubtests = ["pu", "ppu", "pbm", "pk", "lit_indo", "lit_inggris", "pm"];
+const DRIVE_ROOT_ID = "1i5nHtu10NXsPeOufGs1Q4cFwzmcyjvoS";
 
-// Fallback agar upload tetap berfungsi sebelum Supabase dihubungkan.
-const memoryResources: Resource[] = [
-  {
-    id: "res-demo-pu",
-    kind: "module",
-    title: "Modul Penalaran Umum",
-    description: "Materi dasar dan strategi cepat Penalaran Umum.",
-    url: "https://example.com/modul-pu.pdf",
-    is_public: true,
-    created_by: "Mentor Malas Belajar",
-    level: "nguli",
-    subtest: "pu",
-  },
-];
+// Temporary in-memory fallback for legacy/manual links. Wacawaci utama dibaca langsung dari Google Drive.
+const memoryResources: Resource[] = [];
 
 function mentorCodeFrom(req: any, body?: any) {
   return String(req.query?.mentor_code || body?.mentor_code || body?.code || "").trim().toUpperCase();
 }
 
-function hasSupabase() {
-  return Boolean(process.env.SUPABASE_URL && process.env.SUPABASE_SERVICE_ROLE_KEY);
+function normalize(value: string) {
+  return value.toLowerCase().replace(/[()\-_]/g, " ").replace(/\s+/g, " ").trim();
 }
 
-async function supabaseRequest<T = any>(path: string, init: RequestInit = {}): Promise<T> {
-  const url = String(process.env.SUPABASE_URL || "").replace(/\/$/, "");
-  const key = String(process.env.SUPABASE_SERVICE_ROLE_KEY || "");
-  const response = await fetch(`${url}/rest/v1/${path}`, {
-    ...init,
-    headers: {
-      apikey: key,
-      Authorization: `Bearer ${key}`,
-      "Content-Type": "application/json",
-      ...(init.headers || {}),
-    },
-  });
+function inferSubtest(path: string): string | null {
+  const p = normalize(path);
+  if (/(^| )pu( |$)|penalaran umum/.test(p)) return "pu";
+  if (/(^| )ppu( |$)|pengetahuan .*pemahaman umum/.test(p)) return "ppu";
+  if (/(^| )pbm( |$)|pemahaman bacaan|menulis/.test(p)) return "pbm";
+  if (/(^| )pk( |$)|pengetahuan kuantitatif/.test(p)) return "pk";
+  if (/literasi bahasa indonesia|(^| )lit indo( |$)|(^| )lit_indo( |$)/.test(p)) return "lit_indo";
+  if (/literasi bahasa inggris|(^| )lit inggris( |$)|(^| )lit_inggris( |$)/.test(p)) return "lit_inggris";
+  if (/(^| )pm( |$)|penalaran matematika/.test(p)) return "pm";
+  return null;
+}
+
+function inferKind(path: string, mimeType: string): "video" | "module" | null {
+  const p = normalize(path);
+  if (/video|vidio/.test(p) || mimeType.startsWith("video/")) return "video";
+  if (/modul|module|materi|pdf|document|docs/.test(p) || mimeType === "application/pdf" || mimeType.includes("document")) return "module";
+  return null;
+}
+
+async function driveList(params: Record<string, string>) {
+  const key = String(process.env.GOOGLE_DRIVE_API_KEY || "").trim();
+  if (!key) return [];
+  const query = new URLSearchParams({ ...params, key });
+  const response = await fetch(`https://www.googleapis.com/drive/v3/files?${query.toString()}`);
   const text = await response.text();
-  let body: any = null;
-  try { body = text ? JSON.parse(text) : null; } catch { body = text; }
-  if (!response.ok) throw new Error(body?.message || body?.hint || body?.details || body?.error || `Supabase request failed (${response.status})`);
-  return body as T;
+  if (!response.ok) throw new Error(`Google Drive API gagal (${response.status}): ${text.slice(0, 300)}`);
+  const body = JSON.parse(text);
+  return Array.isArray(body.files) ? body.files : [];
+}
+
+async function driveResources(): Promise<Resource[]> {
+  if (!process.env.GOOGLE_DRIVE_API_KEY) return [];
+
+  const folders = await driveList({
+    q: `'${DRIVE_ROOT_ID}' in parents and trashed = false`,
+    pageSize: "100",
+    fields: "files(id,name,mimeType,webViewLink,parents)",
+  });
+
+  const result: Resource[] = [];
+  const queue = folders.map((item: any) => ({ id: item.id, name: item.name, path: item.name }));
+  const seen = new Set<string>();
+
+  while (queue.length) {
+    const current = queue.shift()!;
+    if (seen.has(current.id)) continue;
+    seen.add(current.id);
+
+    const children = await driveList({
+      q: `'${current.id}' in parents and trashed = false`,
+      pageSize: "100",
+      fields: "files(id,name,mimeType,webViewLink,parents)",
+    });
+
+    for (const item of children) {
+      const path = `${current.path}/${item.name}`;
+      if (item.mimeType === "application/vnd.google-apps.folder") {
+        queue.push({ id: item.id, name: item.name, path });
+        continue;
+      }
+
+      const subtest = inferSubtest(path);
+      const kind = inferKind(path, String(item.mimeType || ""));
+      if (!subtest || !kind) continue;
+
+      result.push({
+        id: `drive-${item.id}`,
+        kind,
+        title: item.name,
+        description: path,
+        url: item.webViewLink || `https://drive.google.com/open?id=${item.id}`,
+        is_public: true,
+        created_by: "Google Drive Wacawaci",
+        level: "nguli",
+        subtest,
+      });
+    }
+  }
+
+  return result;
 }
 
 export default async function handler(req: any, res: any) {
   try {
     if (req.method === "GET") {
-      if (!hasSupabase()) return res.status(200).json(memoryResources);
-      const rows = await supabaseRequest<Resource[]>("wacawaci_resources?select=id,kind,title,description,url,is_public,created_by,level,subtest&order=created_at.desc");
-      return res.status(200).json(rows || []);
+      const driveItems = await driveResources();
+      return res.status(200).json([...driveItems, ...memoryResources]);
     }
 
     if (req.method === "DELETE") {
       if (mentorCodeFrom(req) !== MENTOR_CODE) return res.status(401).json({ detail: "Kode mentor tidak cocok." });
       const id = String(req.query?.id || req.body?.id || "").trim();
-      if (!id) return res.status(400).json({ detail: "ID materi wajib diisi." });
-      if (!hasSupabase()) {
-        const index = memoryResources.findIndex((item) => item.id === id);
-        if (index >= 0) memoryResources.splice(index, 1);
-      } else {
-        await supabaseRequest(`wacawaci_resources?id=eq.${encodeURIComponent(id)}`, { method: "DELETE", headers: { Prefer: "return=minimal" } });
-      }
+      const index = memoryResources.findIndex((item) => item.id === id);
+      if (index >= 0) memoryResources.splice(index, 1);
       return res.status(200).json({ ok: true, id });
     }
 
@@ -92,7 +138,7 @@ export default async function handler(req: any, res: any) {
     const description = String(body.description || "").trim();
     const url = String(body.url || "").trim();
     if (!title) return res.status(400).json({ detail: "Judul materi wajib diisi." });
-    if (!url) return res.status(400).json({ detail: "URL/file materi belum tersedia. Untuk file besar, gunakan URL Google Drive/YouTube." });
+    if (!url) return res.status(400).json({ detail: "Masukkan link Google Drive/YouTube." });
 
     const resource: Resource = {
       id: `res-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
@@ -105,20 +151,10 @@ export default async function handler(req: any, res: any) {
       level,
       subtest,
     };
-
-    if (!hasSupabase()) {
-      memoryResources.unshift(resource);
-      return res.status(201).json(resource);
-    }
-
-    const inserted = await supabaseRequest<Resource[]>("wacawaci_resources", {
-      method: "POST",
-      headers: { Prefer: "return=representation" },
-      body: JSON.stringify(resource),
-    });
-    return res.status(201).json(Array.isArray(inserted) ? inserted[0] : inserted);
+    memoryResources.unshift(resource);
+    return res.status(201).json(resource);
   } catch (error: any) {
     console.error("Wacawaci API error", error);
-    return res.status(500).json({ detail: error?.message || "Gagal menyimpan materi Wacawaci." });
+    return res.status(500).json({ detail: error?.message || "Gagal membaca materi Wacawaci." });
   }
 }
