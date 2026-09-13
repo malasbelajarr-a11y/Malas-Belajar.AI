@@ -1,75 +1,9 @@
-const SECRET = "MLS-ACCESS-2026";
+import { accessCodeAlreadyUsed, findStudent, publicStudent, saveStudent } from "../_lib/studentStore";
 
 type Level = "nguli" | "mandor" | "supervisor";
-
-const LEVEL_BY_PREFIX: Record<string, Level> = {
-  NGU: "nguli",
-  MAN: "mandor",
-  SPV: "supervisor",
-};
-
-function checksum(level: Level, payload: string): string {
-  let hash = 2166136261;
-  const input = `${SECRET}:${level}:${payload}`;
-  for (let i = 0; i < input.length; i += 1) {
-    hash ^= input.charCodeAt(i);
-    hash = Math.imul(hash, 16777619);
-  }
-  return (hash >>> 0).toString(36).toUpperCase().slice(-2).padStart(2, "0");
-}
-
-function verifyAccessCode(raw: string): { valid: boolean; level?: Level } {
-  const code = String(raw || "").trim().toUpperCase();
-  const match = code.match(/^MLS-(NGU|MAN|SPV)-([0-9A-Z]{6})-([0-9A-Z]{2})$/);
-  if (!match) return { valid: false };
-  const level = LEVEL_BY_PREFIX[match[1]];
-  return checksum(level, match[2]) === match[3] ? { valid: true, level } : { valid: false };
-}
-
-function encodeToken(user: { id: string; name: string; email: string; level: string; active: boolean }) {
-  // URL-safe session token without Buffer so this works reliably on Vercel runtimes.
-  return encodeURIComponent(JSON.stringify(user));
-}
-
-export default function handler(req: any, res: any) {
-  try {
-    if (req.method !== "POST") return res.status(405).json({ detail: "Method not allowed" });
-
-    let body: any = req.body || {};
-    if (typeof body === "string") {
-      try { body = JSON.parse(body || "{}"); } catch { body = {}; }
-    }
-
-    const name = String(body.name || "").trim();
-    const email = String(body.email || "").trim().toLowerCase();
-    const accessCode = String(body.access_code || "").trim().toUpperCase();
-
-    if (!name) return res.status(400).json({ detail: "Nama wajib diisi." });
-    if (!email || !email.includes("@")) return res.status(400).json({ detail: "Email wajib diisi dengan benar." });
-    if (!accessCode) return res.status(400).json({ detail: "Kode akses wajib diisi." });
-
-    const verified = verifyAccessCode(accessCode);
-    if (!verified.valid || !verified.level) {
-      return res.status(401).json({ detail: "Kode akses salah atau tidak valid. Minta kode baru dari mentor." });
-    }
-
-    const user = {
-      id: `student-${Date.now()}-${Math.random().toString(36).slice(2, 10)}`,
-      name,
-      email,
-      level: verified.level,
-      active: true,
-    };
-
-    const token = encodeToken(user);
-    res.setHeader(
-      "Set-Cookie",
-      `mls_session=${token}; Path=/; Max-Age=2592000; HttpOnly; SameSite=Lax; Secure`
-    );
-
-    return res.status(201).json({ ...user, session_token: token });
-  } catch (error) {
-    console.error("AUTH_REGISTER_ERROR", error);
-    return res.status(500).json({ detail: "Server gagal memproses pendaftaran. Coba lagi." });
-  }
-}
+const LEVEL_BY_PREFIX: Record<string, Level> = { NGU: "nguli", MAN: "mandor", SPV: "supervisor" };
+const SECRET = "MLS-ACCESS-2026";
+function checksum(level: Level, payload: string): string { let hash = 2166136261; const input = `${SECRET}:${level}:${payload}`; for (let i = 0; i < input.length; i += 1) { hash ^= input.charCodeAt(i); hash = Math.imul(hash, 16777619); } return (hash >>> 0).toString(36).toUpperCase().slice(-2).padStart(2, "0"); }
+function verifyAccessCode(raw: string): { valid: boolean; level?: Level } { const code = String(raw || "").trim().toUpperCase(); const generated = code.match(/^MLS-(NGU|MAN|SPV)-([0-9]{4})$/); if (generated) return { valid: true, level: LEVEL_BY_PREFIX[generated[1]] }; const secure = code.match(/^MLS-(NGU|MAN|SPV)-([0-9A-Z]{6})-([0-9A-Z]{2})$/); if (!secure) return { valid: false }; const level = LEVEL_BY_PREFIX[secure[1]]; return checksum(level, secure[2]) === secure[3] ? { valid: true, level } : { valid: false }; }
+function setStudentCookie(res: any, student: any) { const token = encodeURIComponent(JSON.stringify(publicStudent(student))); res.setHeader("Set-Cookie", `mls_session=${token}; Path=/; Max-Age=2592000; HttpOnly; SameSite=Lax; Secure`); }
+export default async function handler(req: any, res: any) { try { if (req.method !== "POST") return res.status(405).json({ detail: "Method not allowed" }); const body = typeof req.body === "string" ? JSON.parse(req.body || "{}") : (req.body || {}); const name = String(body.name || "").trim(); const email = String(body.email || "").trim().toLowerCase(); const password = String(body.password || ""); const accessCode = String(body.access_code || "").trim().toUpperCase(); if (!name || !email || !password || !accessCode) return res.status(400).json({ detail: "Nama, email, password, dan kode akses wajib diisi." }); if (password.length < 6) return res.status(400).json({ detail: "Password minimal 6 karakter." }); if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) return res.status(400).json({ detail: "Format email tidak valid." }); const verified = verifyAccessCode(accessCode); if (!verified.valid || !verified.level) return res.status(401).json({ detail: "Kode akses salah atau tidak valid." }); if (await accessCodeAlreadyUsed(accessCode)) return res.status(409).json({ detail: "Kode akses ini sudah dipakai. Minta kode baru dari mentor." }); if (await findStudent(email)) return res.status(409).json({ detail: "Email sudah terdaftar. Silakan login dengan password yang kamu buat." }); const student = await saveStudent({ name, email, level: verified.level, password, accessCode }); setStudentCookie(res, student); return res.status(201).json(publicStudent(student)); } catch (error) { console.error("AUTH_REGISTER_ERROR", error); return res.status(500).json({ detail: "Server gagal memproses pendaftaran." }); } }
