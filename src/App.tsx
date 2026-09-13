@@ -2,7 +2,6 @@ import { Routes, Route } from "react-router-dom";
 import Home from "@/pages/Home";
 import StudentAuth from "@/pages/StudentAuth";
 import AuthVisualFix from "@/components/AuthVisualFix";
-import LockerSubtestFix from "@/components/LockerSubtestFix";
 import HideOldMentorFix from "@/components/HideOldMentorFix";
 import WacawaciUploadFix from "@/components/WacawaciUploadFix";
 import MentorContentManagerFix from "@/components/MentorContentManagerFix";
@@ -19,7 +18,6 @@ export default function App() {
         <Route path="/login" element={<StudentAuth />} />
       </Routes>
       <StudentEntryGate />
-      <LockerSubtestFix />
       <HideOldMentorFix />
       <WacawaciUploadFix />
       <MentorContentManagerFix />
