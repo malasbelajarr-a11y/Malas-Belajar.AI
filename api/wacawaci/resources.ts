@@ -16,7 +16,6 @@ const validKinds = ["video", "module"];
 const validSubtests = ["pu", "ppu", "pbm", "pk", "lit_indo", "lit_inggris", "pm"];
 const DRIVE_ROOT_ID = "1i5nHtu10NXsPeOufGs1Q4cFwzmcyjvoS";
 
-// Temporary in-memory fallback for legacy/manual links. Wacawaci utama dibaca langsung dari Google Drive.
 const memoryResources: Resource[] = [];
 
 function mentorCodeFrom(req: any, body?: any) {
@@ -24,18 +23,25 @@ function mentorCodeFrom(req: any, body?: any) {
 }
 
 function normalize(value: string) {
-  return value.toLowerCase().replace(/[()\-_]/g, " ").replace(/\s+/g, " ").trim();
+  return value
+    .toLowerCase()
+    .replace(/[_()\-]+/g, " ")
+    .replace(/\s+/g, " ")
+    .trim();
 }
 
 function inferSubtest(path: string): string | null {
   const p = normalize(path);
-  if (/(^| )pu( |$)|penalaran umum/.test(p)) return "pu";
-  if (/(^| )ppu( |$)|pengetahuan .*pemahaman umum/.test(p)) return "ppu";
-  if (/(^| )pbm( |$)|pemahaman bacaan|menulis/.test(p)) return "pbm";
-  if (/(^| )pk( |$)|pengetahuan kuantitatif/.test(p)) return "pk";
-  if (/literasi bahasa indonesia|(^| )lit indo( |$)|(^| )lit_indo( |$)/.test(p)) return "lit_indo";
-  if (/literasi bahasa inggris|(^| )lit inggris( |$)|(^| )lit_inggris( |$)/.test(p)) return "lit_inggris";
-  if (/(^| )pm( |$)|penalaran matematika/.test(p)) return "pm";
+
+  // Check the longer/specific names first so nothing gets swallowed by a shorter code.
+  if (/literasi bahasa indonesia|(^| )lit indo( |$)/.test(p)) return "lit_indo";
+  if (/literasi bahasa inggris|(^| )lit inggris( |$)/.test(p)) return "lit_inggris";
+  if (/pengetahuan .*pemahaman umum|(^| )ppu( |$)/.test(p)) return "ppu";
+  if (/pemahaman bacaan|pemahaman .*menulis|(^| )pbm( |$)/.test(p)) return "pbm";
+  if (/pengetahuan kuantitatif|(^| )pk( |$)/.test(p)) return "pk";
+  if (/penalaran matematika|(^| )pm( |$)/.test(p)) return "pm";
+  if (/penalaran umum|(^| )pu( |$)/.test(p)) return "pu";
+
   return null;
 }
 
@@ -100,7 +106,9 @@ async function driveResources(): Promise<Resource[]> {
         url: item.webViewLink || `https://drive.google.com/open?id=${item.id}`,
         is_public: true,
         created_by: "Google Drive Wacawaci",
-        level: "nguli",
+        // Drive folder structure is subtest -> VIDEO/MODUL, not level-specific.
+        // Leave level empty so every student's level can see the Drive material.
+        level: "",
         subtest,
       });
     }
