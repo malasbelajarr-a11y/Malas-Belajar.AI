@@ -1,0 +1,1 @@
+Wacawaci reads public Google Drive content from the configured root folder.
