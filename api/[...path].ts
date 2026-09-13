@@ -42,7 +42,12 @@ function codeLevel(code: string) {
 }
 
 export default async function handler(req: any, res: any) {
-  const url = String(req.url || "").split("?")[0].replace(/\/+$/, "") || "/";
+  // Vercel may strip the /api prefix before invoking a catch-all function.
+  // Normalize it so the existing Express routes and auth handlers see the same path.
+  const rawUrl = String(req.url || "/");
+  const normalizedUrl = rawUrl.startsWith("/api/") || rawUrl === "/api" ? rawUrl : `/api${rawUrl.startsWith("/") ? rawUrl : `/${rawUrl}`}`;
+  req.url = normalizedUrl;
+  const url = normalizedUrl.split("?")[0].replace(/\/+$/, "") || "/";
 
   // Student auth is handled here so registration, login, and mentor student-list
   // all use the same persistent store and do not become separate Vercel functions.
