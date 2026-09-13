@@ -50,6 +50,21 @@ function parseRow(row: any): StoredStudent | null {
 
 const memoryStudents = new Map<string, StoredStudent>();
 
+// Keep the old mentor/demo student names visible while the real registry is empty.
+// They are only fallback records; newly registered students are added normally.
+for (const student of [
+  { id: "usr-demo-1", name: "Pejuang SNBT 2026", email: "siswa@malasbelajar.id", level: "nguli" as StudentLevel },
+  { id: "usr-mandor-1", name: "Siti Rahma", email: "siti@malasbelajar.id", level: "mandor" as StudentLevel },
+  { id: "usr-spv-1", name: "Budi Santoso", email: "budi@malasbelajar.id", level: "supervisor" as StudentLevel },
+]) {
+  memoryStudents.set(student.email, {
+    ...student,
+    active: true,
+    password_hash: hashPassword("demo123"),
+    used_access_codes: [],
+  });
+}
+
 export function publicStudent(student: StoredStudent) {
   return {
     id: student.id,
@@ -70,7 +85,9 @@ export async function listStudents(): Promise<StoredStudent[]> {
     const rows = await supabaseRequest<any[]>(`${"wacawaci_resources"}?kind=eq.${KIND}&select=*`);
     const students = rows.map(parseRow).filter(Boolean) as StoredStudent[];
     for (const student of students) memoryStudents.set(student.email, student);
-    return students;
+    // Preserve the legacy/demo names if the persistent registry is still empty.
+    if (students.length === 0) return Array.from(memoryStudents.values());
+    return Array.from(memoryStudents.values());
   } catch (error) {
     console.error("STUDENT_LIST_ERROR", error);
     return Array.from(memoryStudents.values());
