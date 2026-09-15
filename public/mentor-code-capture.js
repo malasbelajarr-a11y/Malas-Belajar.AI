@@ -1,0 +1,1 @@
+document.addEventListener('click',function(e){const b=e.target.closest('[data-testid="mentor-verify-button"]');if(!b)return;const i=document.querySelector('[data-testid="mentor-code-input"]');if(i&&i.value)sessionStorage.setItem('mls_mentor_code',i.value.trim());},true);
