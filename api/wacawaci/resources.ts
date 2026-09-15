@@ -22,9 +22,11 @@ const memoryResources: Resource[] = [];
 function mentorCodeFrom(req: any, body?: any) {
   return String(req.query?.mentor_code || body?.mentor_code || body?.code || "").trim().toUpperCase();
 }
+
 function normalize(value: string) {
   return value.toLowerCase().replace(/[_()\-]+/g, " ").replace(/\s+/g, " ").trim();
 }
+
 function inferSubtest(path: string): string | null {
   const p = normalize(path);
   if (/literasi bahasa indonesia|(^| )lit indo( |$)/.test(p)) return "lit_indo";
@@ -36,47 +38,69 @@ function inferSubtest(path: string): string | null {
   if (/penalaran umum|(^| )pu( |$)/.test(p)) return "pu";
   return null;
 }
+
 function inferKind(path: string, mimeType: string): "video" | "module" | null {
   const p = normalize(path);
   if (/video|vidio/.test(p) || mimeType.startsWith("video/")) return "video";
   if (/modul|module|materi|pdf|document|docs/.test(p) || mimeType === "application/pdf" || mimeType.includes("document")) return "module";
   return null;
 }
+
 async function driveList(params: Record<string, string>) {
   const key = String(process.env.GOOGLE_DRIVE_API_KEY || "").trim();
   if (!key) return [];
-  const query = new URLSearchParams({ ...params, key });
-  const response = await fetch(`${DRIVE_API}?${query.toString()}`);
-  const text = await response.text();
-  if (!response.ok) throw new Error(`Google Drive API gagal (${response.status}): ${text.slice(0, 300)}`);
-  const body = JSON.parse(text);
-  return Array.isArray(body.files) ? body.files : [];
+
+  const all: any[] = [];
+  let pageToken = "";
+  do {
+    const queryParams = new URLSearchParams({ ...params, pageSize: "100", ...(pageToken ? { pageToken } : {}), key });
+    const response = await fetch(`${DRIVE_API}?${queryParams.toString()}`);
+    const text = await response.text();
+    if (!response.ok) {
+      throw new Error(`Google Drive API gagal (${response.status}): ${text.slice(0, 300)}`);
+    }
+    const body = JSON.parse(text);
+    if (Array.isArray(body.files)) all.push(...body.files);
+    pageToken = String(body.nextPageToken || "");
+  } while (pageToken);
+
+  return all;
 }
+
 async function driveResources(): Promise<Resource[]> {
-  if (!process.env.GOOGLE_DRIVE_API_KEY) return [];
-  const folders = await driveList({ q: `'${DRIVE_ROOT_ID}' in parents and trashed = false`, pageSize: "100", fields: "files(id,name,mimeType,webViewLink,parents)" });
+  const key = String(process.env.GOOGLE_DRIVE_API_KEY || "").trim();
+  if (!key) return [];
+
   const result: Resource[] = [];
-  const queue = folders.map((item: any) => ({ id: item.id, name: item.name, path: item.name }));
   const seen = new Set<string>();
+  const queue: Array<{ id: string; path: string }> = [{ id: DRIVE_ROOT_ID, path: "" }];
+
   while (queue.length) {
     const current = queue.shift()!;
     if (seen.has(current.id)) continue;
     seen.add(current.id);
-    const children = await driveList({ q: `'${current.id}' in parents and trashed = false`, pageSize: "100", fields: "files(id,name,mimeType,webViewLink,parents)" });
+
+    const children = await driveList({
+      q: `'${current.id}' in parents and trashed = false`,
+      fields: "nextPageToken,files(id,name,mimeType,webViewLink,parents)",
+    });
+
     for (const item of children) {
-      const path = `${current.path}/${item.name}`;
+      const itemPath = current.path ? `${current.path}/${item.name}` : item.name;
       if (item.mimeType === "application/vnd.google-apps.folder") {
-        queue.push({ id: item.id, name: item.name, path });
+        queue.push({ id: item.id, path: itemPath });
         continue;
       }
-      const subtest = inferSubtest(path);
-      const kind = inferKind(path, String(item.mimeType || ""));
+
+      const subtest = inferSubtest(itemPath);
+      const kind = inferKind(itemPath, String(item.mimeType || ""));
       if (!subtest || !kind) continue;
+
       result.push({
         id: `drive-${item.id}`,
         kind,
         title: item.name,
-        description: path,
+        description: itemPath,
         url: item.webViewLink || `https://drive.google.com/open?id=${item.id}`,
         is_public: true,
         created_by: "Google Drive Wacawaci",
@@ -85,6 +109,7 @@ async function driveResources(): Promise<Resource[]> {
       });
     }
   }
+
   return result;
 }
 
@@ -93,6 +118,7 @@ export default async function handler(req: any, res: any) {
     if (req.method === "GET") {
       return res.status(200).json([...(await driveResources()), ...memoryResources]);
     }
+
     if (req.method === "DELETE") {
       if (mentorCodeFrom(req) !== MENTOR_CODE) return res.status(401).json({ detail: "Kode mentor tidak cocok." });
       const id = String(req.query?.id || req.body?.id || "").trim();
@@ -100,12 +126,15 @@ export default async function handler(req: any, res: any) {
       if (index >= 0) memoryResources.splice(index, 1);
       return res.status(200).json({ ok: true, id });
     }
+
     if (req.method !== "POST") return res.status(405).json({ detail: "Method not allowed" });
+
     let body: any = req.body || {};
     if (typeof body === "string") {
       try { body = JSON.parse(body || "{}"); } catch { body = {}; }
     }
     if (mentorCodeFrom(req, body) !== MENTOR_CODE) return res.status(401).json({ detail: "Kode mentor tidak cocok." });
+
     const level = validLevels.includes(body.level) ? body.level : "nguli";
     const kind = validKinds.includes(body.kind) ? body.kind : "module";
     const subtest = validSubtests.includes(body.subtest) ? body.subtest : "pu";
@@ -114,6 +143,7 @@ export default async function handler(req: any, res: any) {
     const url = String(body.url || "").trim();
     if (!title) return res.status(400).json({ detail: "Judul materi wajib diisi." });
     if (!url) return res.status(400).json({ detail: "Masukkan link Google Drive/YouTube." });
+
     const resource: Resource = {
       id: `res-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
       kind,
