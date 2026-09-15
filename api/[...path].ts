@@ -21,7 +21,6 @@ function validMentorCode(value: unknown): boolean {
   const code = String(value || "").trim().toUpperCase();
   return LEGACY_MENTOR_CODES.has(code) || crypto.createHash("sha256").update(code).digest("hex") === MENTOR_CODE_HASH;
 }
-
 function bodyOf(req: any): any {
   if (!req.body) return {};
   if (typeof req.body === "string") { try { return JSON.parse(req.body); } catch { return {}; } }
@@ -51,7 +50,6 @@ function readSession(req: any): any | null {
   if (!match) return null;
   try { return JSON.parse(decodeURIComponent(match[1])); } catch { return null; }
 }
-
 async function auth(req: any, res: any, path: string) {
   const body = bodyOf(req);
   const order: Level[] = ["nguli", "mandor", "supervisor"];
@@ -75,8 +73,7 @@ async function auth(req: any, res: any, path: string) {
       if (await accessCodeAlreadyUsed(requestedCode) || generatedCodes.get(requestedCode)?.used) return res.status(409).json({ detail: "Kode akses ini sudah pernah dipakai." });
       const updated = await markAccessCodeUsed(sessionStudent, requestedCode, requestedLevel);
       const entry = generatedCodes.get(requestedCode); if (entry) { entry.used = true; entry.used_by = updated.id; }
-      setCookie(res, updated);
-      return res.status(200).json(publicStudent(updated));
+      setCookie(res, updated); return res.status(200).json(publicStudent(updated));
     }
     const name = String(body.name || "").trim();
     const email = String(body.email || "").trim().toLowerCase();
@@ -89,8 +86,7 @@ async function auth(req: any, res: any, path: string) {
     if (await findStudent(email)) return res.status(409).json({ detail: "Email sudah terdaftar. Silakan login dengan password yang dibuat sebelumnya." });
     const student = await saveStudent({ name, email, level, password, accessCode: requestedCode });
     const entry = generatedCodes.get(requestedCode); if (entry) { entry.used = true; entry.used_by = student.id; }
-    setCookie(res, student);
-    return res.status(201).json(publicStudent(student));
+    setCookie(res, student); return res.status(201).json(publicStudent(student));
   }
   if (path === "/api/auth/login" && req.method === "POST") {
     const email = String(body.email || "").trim().toLowerCase(); const password = String(body.password || "");
@@ -119,14 +115,13 @@ async function auth(req: any, res: any, path: string) {
   }
   return null;
 }
-
 async function admin(req: any, res: any, path: string) {
   const body = bodyOf(req);
   if (path === "/api/admin/students" && req.method === "GET") {
     if (!validMentorCode(req.query?.mentor_code)) return res.status(403).json({ detail: "Kode mentor tidak valid." });
     return res.status(200).json((await listStudents()).map(publicStudent));
   }
-  if ((path === "/api/admin/students" || path.startsWith("/api/admin/students/")) && req.method === "PATCH") {
+  if ((path === "/api/admin/students" || path.startsWith("/api/admin/students/")) && (req.method === "PATCH" || req.method === "PUT")) {
     if (!validMentorCode(body.mentor_code)) return res.status(403).json({ detail: "Kode mentor tidak valid." });
     const idFromPath = path.startsWith("/api/admin/students/") ? decodeURIComponent(path.slice("/api/admin/students/".length)) : "";
     const id = String(body.id || req.query?.id || idFromPath || ""); const student = (await listStudents()).find((s) => s.id === id);
@@ -143,7 +138,6 @@ async function admin(req: any, res: any, path: string) {
   }
   return null;
 }
-
 export default async function handler(req: any, res: any) {
   const path = normalizePath(req); const raw = String(req.url || ""); req.url = path + (raw.includes("?") ? `?${raw.split("?")[1]}` : "");
   try {
