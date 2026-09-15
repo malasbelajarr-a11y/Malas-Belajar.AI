@@ -67,8 +67,6 @@ async function auth(req: any, res: any, path: string) {
     const requestedLevel = String(body.level || "").trim().toLowerCase() as Level;
     const requestedCode = String(body.access_code || body.code || "").trim().toUpperCase();
 
-    // The dashboard's legacy "activate code" control is still a level-up flow.
-    // If an authenticated student uses it, upgrade that student instead of creating a second account.
     if (sessionStudent && order.includes(requestedLevel) && requestedCode && order.indexOf(requestedLevel) > order.indexOf(sessionStudent.level)) {
       if (levelFromCode(requestedCode) !== requestedLevel) return res.status(400).json({ detail: "Kode akses tidak sesuai dengan level tujuan." });
       if (await accessCodeAlreadyUsed(requestedCode) || generatedCodes.get(requestedCode)?.used) return res.status(409).json({ detail: "Kode akses ini sudah pernah dipakai." });
@@ -153,7 +151,7 @@ async function admin(req: any, res: any, path: string) {
     const body = bodyOf(req);
     const level = String(body.level || "nguli").toLowerCase() as Level;
     const count = Math.max(1, Math.min(50, Number(body.count) || 3));
-    if (!order.includes(level)) return res.status(400).json({ detail: "Level tidak valid." });
+    if (!["nguli", "mandor", "supervisor"].includes(level)) return res.status(400).json({ detail: "Level tidak valid." });
     const prefix = level === "nguli" ? "NGU" : level === "mandor" ? "MAN" : "SPV";
     const out = [];
     for (let i = 0; i < count; i++) {
