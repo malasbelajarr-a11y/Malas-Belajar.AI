@@ -1,5 +1,5 @@
-// Typed fetch layer over the FastAPI backend. Base is the relative "/api" prefix so the
-// same code works in dev (Vite proxies /api → :8001) and behind a single origin in prod.
+// Typed fetch layer over the unified Vercel API. Base is the relative "/api" prefix so the
+// same code works in dev and production behind a single origin.
 const BASE = "/api";
 
 export class ApiError extends Error {
@@ -19,12 +19,8 @@ type JsonBody = unknown;
 async function request<T>(method: string, path: string, body?: JsonBody | FormData): Promise<T> {
   const isFormData = body instanceof FormData;
   const headers: Record<string, string> = {};
-  if (body !== undefined && !isFormData) {
-    headers["Content-Type"] = "application/json";
-  }
+  if (body !== undefined && !isFormData) headers["Content-Type"] = "application/json";
 
-  // Prefer the signed session token returned by the standalone Vercel auth route.
-  // The legacy mls_user_id is kept as a fallback for older sessions/endpoints.
   const token =
     typeof window !== "undefined"
       ? localStorage.getItem("mls_session_token") || localStorage.getItem("mls_user_id")
@@ -62,7 +58,27 @@ async function request<T>(method: string, path: string, body?: JsonBody | FormDa
 export const apiGet = <T>(path: string) => request<T>("GET", path);
 export const apiPost = <T>(path: string, body?: JsonBody) => request<T>("POST", path, body ?? null);
 export const apiPut = <T>(path: string, body?: JsonBody) => request<T>("PUT", path, body ?? null);
-export const apiPatch = <T>(path: string, body?: JsonBody) =>
-  request<T>("PATCH", path, body ?? null);
+
+export const apiPatch = <T>(path: string, body?: JsonBody) => {
+  if (path === "/auth/level" && typeof window !== "undefined") {
+    const current = body && typeof body === "object" && !Array.isArray(body)
+      ? body as Record<string, unknown>
+      : {};
+    if (!current.access_code && !current.code) {
+      const code = window.prompt("Masukkan kode akses untuk naik ke level tujuan:");
+      if (!code?.trim()) {
+        return Promise.reject(
+          new ApiError(400, { detail: "Kode akses wajib diisi untuk naik level." }),
+        );
+      }
+      return request<T>("PATCH", path, {
+        ...current,
+        access_code: code.trim().toUpperCase(),
+      });
+    }
+  }
+  return request<T>("PATCH", path, body ?? null);
+};
+
 export const apiDelete = <T>(path: string) => request<T>("DELETE", path);
 export const apiUpload = <T>(path: string, body: FormData) => request<T>("POST", path, body);
