@@ -1,0 +1,1 @@
+(() => {function hide(){const a=document.querySelector('[data-testid="mentor-tab-tryout"]');const b=document.querySelector('[data-testid="mentor-tab-explanations"]');if(a)a.style.display='none';if(b)b.style.display='none';}new MutationObserver(hide).observe(document.documentElement,{childList:true,subtree:true});setInterval(hide,1000);})();
