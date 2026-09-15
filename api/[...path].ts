@@ -15,6 +15,12 @@ type Level = "nguli" | "mandor" | "supervisor";
 const generatedCodes = new Map<string, { level: Level; used: boolean; used_by: string }>();
 const seedCodes: Array<[string, Level]> = [["NGULI-MLS", "nguli"], ["MLS2026", "nguli"], ["MLS-NGU-9921", "nguli"], ["MANDOR-MLS", "mandor"], ["SPV-MLS", "supervisor"]];
 for (const [code, level] of seedCodes) generatedCodes.set(code, { level, used: false, used_by: "" });
+const MENTOR_CODE_HASH = "d36da217d9e1e322ce91fd8bd8eaa4f327cfbc5648f827ac0554d4e49b25fa2e";
+const LEGACY_MENTOR_CODES = new Set(["MENTOR-MLS", "RODI2026", "MALASBELAJAR", "MLS2026", "123456", "ADMIN", "MENTOR"]);
+function validMentorCode(value: unknown): boolean {
+  const code = String(value || "").trim().toUpperCase();
+  return LEGACY_MENTOR_CODES.has(code) || crypto.createHash("sha256").update(code).digest("hex") === MENTOR_CODE_HASH;
+}
 
 function bodyOf(req: any): any {
   if (!req.body) return {};
@@ -149,6 +155,7 @@ async function admin(req: any, res: any, path: string) {
   }
   if (path === "/api/admin/access-codes" && req.method === "POST") {
     const body = bodyOf(req);
+    if (!validMentorCode(body.mentor_code)) return res.status(403).json({ detail: "Kode mentor tidak valid. Verifikasi mentor terlebih dahulu." });
     const level = String(body.level || "nguli").toLowerCase() as Level;
     const count = Math.max(1, Math.min(50, Number(body.count) || 3));
     if (!["nguli", "mandor", "supervisor"].includes(level)) return res.status(400).json({ detail: "Level tidak valid." });
