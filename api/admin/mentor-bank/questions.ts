@@ -6,7 +6,7 @@ const SUBTESTS=[
   ['lit_indo','Literasi Bahasa Indonesia'],['lit_inggris','Literasi Bahasa Inggris'],['pm','Penalaran Matematika']
 ] as const;
 const MENTOR_CODES=new Set(['MENTOR-MLS','RODI2026','MALASBELAJAR','MLS2026','123456','ADMIN','MENTOR']);
-const MENTOR_HASH='d36da217d9e1e322ce91fd8d8eea4f327cfbc5648f827ac0554d4e49b25fa2e';
+const MENTOR_HASH='d36da217d9e1e322ce91fd8d8eaa4f327cfbc5648f827ac0554d4e49b25fa2e';
 const memory:any[]=[];
 function validMentor(v:unknown){const c=String(v||'').trim().toUpperCase();return MENTOR_CODES.has(c)||crypto.createHash('sha256').update(c).digest('hex')===MENTOR_HASH;}
 function configured(){return Boolean(process.env.SUPABASE_URL&&process.env.SUPABASE_SERVICE_ROLE_KEY)}
