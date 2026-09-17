@@ -2,6 +2,11 @@
   "buildCommand": "npm run build",
   "outputDirectory": "dist",
   "rewrites": [
+    { "source": "/api/admin/access-codes", "destination": "/api/mentor-actions?action=access-codes" },
+    { "source": "/api/admin/mentor-bank/questions", "destination": "/api/mentor-actions?action=questions" },
+    { "source": "/api/admin/mentor-bank/tryouts", "destination": "/api/mentor-actions?action=tryouts" },
+    { "source": "/api/admin/mentor-bank", "destination": "/api/mentor-actions?action=bank" },
+    { "source": "/api/live-classes", "destination": "/api/mentor-actions?action=live" },
     { "source": "/((?!api/).*)", "destination": "/index.html" }
   ]
 }
