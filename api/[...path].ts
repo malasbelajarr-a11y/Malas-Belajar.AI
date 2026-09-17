@@ -1,4 +1,3 @@
-import app from "../server";
 import crypto from "node:crypto";
 import { accessCodeAlreadyUsed, findStudent, listStudents, markAccessCodeUsed, passwordMatches, publicStudent, saveStudent, setStudentActive } from "./_lib/studentStore";
 
@@ -45,10 +44,10 @@ async function admin(req:any,res:any,path:string){const body=bodyOf(req);if(path
  return null;
 }
 async function content(req:any,res:any,path:string){
- if(path==="/api/rodi/module"&&req.method==="GET"){const r=await app(req,res);return r}
+ if(path==="/api/rodi/module"&&req.method==="GET"){const {default:app}=await import("../server");return app(req,res)}
  if(path==="/api/utbaby/sessions"&&req.method==="POST")return res.status(201).json(buildMentorTryout(bodyOf(req)));
  if(path==="/api/utbaby/sessions"&&req.method==="GET")return res.status(200).json(mentorTryouts.map(({questions,...x})=>x));
  if(path.startsWith("/api/utbaby/sessions/")&&req.method==="GET"){const id=path.split("/").pop();const t=mentorTryouts.find(x=>x.id===id)||mentorTryouts[0];if(!t)return res.status(404).json({detail:"Belum ada tryout mentor."});return res.status(200).json(t)}
  return null;
 }
-export default async function handler(req:any,res:any){const path=normalizePath(req);const raw=String(req.url||"");req.url=path+(raw.includes("?")?`?${raw.split("?")[1]}`:"");try{if(path.startsWith("/api/auth/")){const r=await auth(req,res,path);if(r!==null)return r}if(path.startsWith("/api/admin/")){const r=await admin(req,res,path);if(r!==null)return r}if(path.startsWith("/api/utbaby/")||path==="/api/utbaby/sessions"){const r=await content(req,res,path);if(r!==null)return r}return app(req,res)}catch(error){console.error("API_HANDLER_ERROR",error);if(!res.headersSent)return res.status(500).json({detail:"Server gagal memproses permintaan."})}}
+export default async function handler(req:any,res:any){const path=normalizePath(req);const raw=String(req.url||"");req.url=path+(raw.includes("?")?`?${raw.split("?")[1]}`:"");try{if(path.startsWith("/api/auth/")){const r=await auth(req,res,path);if(r!==null)return r}if(path.startsWith("/api/admin/")){const r=await admin(req,res,path);if(r!==null)return r}if(path.startsWith("/api/utbaby/")||path==="/api/utbaby/sessions"){const r=await content(req,res,path);if(r!==null)return r}const {default:app}=await import("../server");return app(req,res)}catch(error){console.error("API_HANDLER_ERROR",error);if(!res.headersSent)return res.status(500).json({detail:error instanceof Error?error.message:"Server gagal memproses permintaan."})}}
