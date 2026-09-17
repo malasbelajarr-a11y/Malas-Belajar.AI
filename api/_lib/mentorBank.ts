@@ -29,7 +29,7 @@ export async function loadMentorQuestions(){
 }
 export async function persistMentorQuestion(q:MentorQuestion){
  if(!supabaseConfigured())return;
- await supabaseRequest("wacawaci_resources",{method:"POST",headers:{Prefer:"return=minimal"},body:JSON.stringify({id:q.id,kind:"mentor_question",title:`${q.chapter_label} #${q.number}`,description:JSON.stringify(q),url:q.file_url||q.video_url||"",is_public:true,created_by:"mentor",level:q.level})});
+ await supabaseRequest("wacawaci_resources",{method:"POST",headers:{Prefer:"return=minimal"},body:JSON.stringify({id:crypto.randomUUID(),kind:"mentor_question",title:`${q.chapter_label} #${q.number}`,description:JSON.stringify(q),url:q.file_url||q.video_url||"",is_public:true,created_by:"mentor",level:q.level})});
 }
 export async function loadMentorTryouts(){
  if(!supabaseConfigured())return mentorTryouts;
@@ -37,7 +37,7 @@ export async function loadMentorTryouts(){
 }
 export async function persistMentorTryout(t:MentorTryout){
  if(!supabaseConfigured())return;
- await supabaseRequest("wacawaci_resources",{method:"POST",headers:{Prefer:"return=minimal"},body:JSON.stringify({id:t.id,kind:"mentor_tryout",title:t.title,description:JSON.stringify(t),url:"",is_public:true,created_by:"mentor",level:t.level})});
+ await supabaseRequest("wacawaci_resources",{method:"POST",headers:{Prefer:"return=minimal"},body:JSON.stringify({id:crypto.randomUUID(),kind:"mentor_tryout",title:t.title,description:JSON.stringify(t),url:"",is_public:true,created_by:"mentor",level:t.level})});
 }
 export function createQuestion(body:any):MentorQuestion{
  const chapter=String(body.subtest||"pu"),meta=SUBTESTS.find(x=>x[0]===chapter);if(!meta)throw new Error("Subtes tidak valid.");
