@@ -27,7 +27,7 @@ export default async function handler(req:VercelRequest,res:VercelResponse){
     const prefix=level==='nguli'?'NGU':level==='mandor'?'MAN':'SPV';
     const codes=new Set<string>();
     while(codes.size<count)codes.add(`MLS-${prefix}-${crypto.randomInt(1000,10000)}`);
-    const out=[...codes].map((code,i)=>({id:`code-${Date.now()}-${i}-${crypto.randomBytes(2).toString('hex')}`,code,level,used:false,used_by:''}));
+    const out=[...codes].map((code)=>({id:crypto.randomUUID(),code,level,used:false,used_by:''}));
     if(configured()){
       try{
         await supabase('access_codes',{method:'POST',headers:{Prefer:'return=minimal'},body:JSON.stringify(out.map(x=>({id:x.id,code:x.code,level:x.level,used:false,used_by:null,created_at:new Date().toISOString()})))});
