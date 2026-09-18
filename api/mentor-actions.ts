@@ -26,6 +26,10 @@ export default async function handler(req:VercelRequest,res:VercelResponse){
     const action=String(req.query?.action||'').trim().toLowerCase(); const body=bodyOf(req);
     if(!action)return res.status(400).json({detail:'Aksi mentor tidak ditentukan.'});
     if(action==='access-codes'){
+      if(req.method==='GET'){
+        if(!validMentor(req.query?.mentor_code))return res.status(403).json({detail:'Kode mentor tidak valid.'});
+        return res.status(200).json(await db('access_codes?select=id,code,level,used,used_by,created_at&order=created_at.desc'));
+      }
       if(req.method!=='POST')return res.status(405).json({detail:'Method tidak diizinkan.'});
       if(!validMentor(body.mentor_code))return res.status(403).json({detail:'Kode mentor tidak valid.'});
       const level=String(body.level||'nguli').toLowerCase(); if(!['nguli','mandor','supervisor'].includes(level))return res.status(400).json({detail:'Level tidak valid.'});
