@@ -47,14 +47,16 @@ export default function MentorDashboardPlus() {
     setLoading(true);
     try {
       const code = mentorCode();
-      const [studentRows, leaderboardRows, liveRows] = await Promise.all([
+      const [studentRows, leaderboardRows, liveRows, codeRows] = await Promise.all([
         jsonRequest<Student[]>(`/api/admin/students?mentor_code=${encodeURIComponent(code)}`),
         apiGet<LeaderboardEntry[]>("/utbaby/leaderboard"),
         apiGet<LiveClass[]>("/live-classes"),
+        jsonRequest<AccessCode[]>(`/api/admin/access-codes?mentor_code=${encodeURIComponent(code)}`),
       ]);
       setStudents(Array.isArray(studentRows) ? studentRows : []);
       setRanking(Array.isArray(leaderboardRows) ? leaderboardRows : []);
-      setLives(Array.isArray(liveRows) ? liveRows : []);\n      setCodes(Array.isArray(codeRows) ? codeRows : []);
+      setLives(Array.isArray(liveRows) ? liveRows : []);
+      setCodes(Array.isArray(codeRows) ? codeRows : []);
     } catch (error: any) {
       toast.error(error?.message || "Data Mentor belum bisa dimuat.");
     } finally { setLoading(false); }
