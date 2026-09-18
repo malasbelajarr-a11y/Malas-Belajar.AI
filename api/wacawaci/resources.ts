@@ -84,7 +84,7 @@ function dbResource(row: any): Resource {
 
 async function storedResources(): Promise<Resource[]> {
   if (!supabaseConfigured()) return [];
-  const rows = await supabaseRequest<any[]>("wacawaci_resources?select=*&kind=in.(video,module)&order=created_at.desc");
+  const rows = await supabaseRequest<any[]>("wacawaci_resources?select=*&kind=in.(video,module,pdf,ringkasan,cheatsheet)&order=created_at.desc");
   return rows.map(dbResource);
 }
 
