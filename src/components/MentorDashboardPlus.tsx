@@ -54,7 +54,7 @@ export default function MentorDashboardPlus() {
       ]);
       setStudents(Array.isArray(studentRows) ? studentRows : []);
       setRanking(Array.isArray(leaderboardRows) ? leaderboardRows : []);
-      setLives(Array.isArray(liveRows) ? liveRows : []);
+      setLives(Array.isArray(liveRows) ? liveRows : []);\n      setCodes(Array.isArray(codeRows) ? codeRows : []);
     } catch (error: any) {
       toast.error(error?.message || "Data Mentor belum bisa dimuat.");
     } finally { setLoading(false); }
