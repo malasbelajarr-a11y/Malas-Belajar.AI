@@ -1,3 +1,5 @@
+import { supabaseConfigured, supabaseRequest } from "../_lib/supabase";
+
 type Resource = {
   id: string;
   kind: string;
@@ -67,6 +69,25 @@ async function driveList(params: Record<string, string>) {
   return all;
 }
 
+function dbResource(row: any): Resource {
+  let description = String(row?.description || "");
+  let subtest = "";
+  try {
+    const meta = JSON.parse(description);
+    if (meta && typeof meta === "object" && meta.__mls_wacawaci) {
+      description = String(meta.description || "");
+      subtest = String(meta.subtest || "");
+    }
+  } catch {}
+  return { id: String(row.id), kind: String(row.kind || "module"), title: String(row.title || ""), description, url: String(row.url || ""), is_public: Boolean(row.is_public), created_by: String(row.created_by || ""), level: String(row.level || "nguli"), subtest };
+}
+
+async function storedResources(): Promise<Resource[]> {
+  if (!supabaseConfigured()) return [];
+  const rows = await supabaseRequest<any[]>("wacawaci_resources?select=*&kind=in.(video,module)&order=created_at.desc");
+  return rows.map(dbResource);
+}
+
 async function driveResources(): Promise<Resource[]> {
   const key = String(process.env.GOOGLE_DRIVE_API_KEY || "").trim();
   if (!key) return [];
@@ -116,12 +137,16 @@ async function driveResources(): Promise<Resource[]> {
 export default async function handler(req: any, res: any) {
   try {
     if (req.method === "GET") {
-      return res.status(200).json([...(await driveResources()), ...memoryResources]);
+      const stored = await storedResources();
+      return res.status(200).json([...stored, ...(await driveResources()), ...memoryResources]);
     }
 
     if (req.method === "DELETE") {
       if (mentorCodeFrom(req) !== MENTOR_CODE) return res.status(401).json({ detail: "Kode mentor tidak cocok." });
       const id = String(req.query?.id || req.body?.id || "").trim();
+      if (supabaseConfigured()) {
+        await supabaseRequest(`wacawaci_resources?id=eq.${encodeURIComponent(id)}`, { method: "DELETE" });
+      }
       const index = memoryResources.findIndex((item) => item.id === id);
       if (index >= 0) memoryResources.splice(index, 1);
       return res.status(200).json({ ok: true, id });
@@ -155,7 +180,24 @@ export default async function handler(req: any, res: any) {
       level,
       subtest,
     };
-    memoryResources.unshift(resource);
+    if (supabaseConfigured()) {
+      await supabaseRequest("wacawaci_resources", {
+        method: "POST",
+        headers: { Prefer: "return=minimal" },
+        body: JSON.stringify({
+          id: resource.id,
+          kind: resource.kind,
+          title: resource.title,
+          description: JSON.stringify({ __mls_wacawaci: true, description: resource.description, subtest: resource.subtest }),
+          url: resource.url,
+          is_public: resource.is_public,
+          created_by: resource.created_by,
+          level: resource.level,
+        }),
+      });
+    } else {
+      memoryResources.unshift(resource);
+    }
     return res.status(201).json(resource);
   } catch (error: any) {
     console.error("Wacawaci API error", error);
