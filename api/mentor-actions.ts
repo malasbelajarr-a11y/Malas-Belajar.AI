@@ -39,6 +39,20 @@ export default async function handler(req:VercelRequest,res:VercelResponse){
       await db('access_codes',{method:'POST',headers:{Prefer:'return=minimal'},body:JSON.stringify(out.map(x=>({id:x.id,code:x.code,level:x.level,used:false,used_by:null,created_at:new Date().toISOString()})))});
       return res.status(200).json(out);
     }
+    if(action==='students'){
+      if(!validMentor(req.query?.mentor_code || body.mentor_code))return res.status(403).json({detail:'Kode mentor tidak valid.'});
+      if(req.method==='GET'){
+        const rows=await db('students?select=id,name,email,level,active&order=created_at.asc');
+        return res.status(200).json(rows||[]);
+      }
+      if(req.method==='PATCH'){
+        const id=String(req.query?.id||'').trim(), active=body.active!==false;
+        if(!id)return res.status(400).json({detail:'ID siswa wajib diisi.'});
+        const rows=await db('students?id=eq.'+encodeURIComponent(id)+'&select=id,name,email,level,active',{method:'PATCH',headers:{Prefer:'return=representation'},body:JSON.stringify({active})});
+        return res.status(200).json(Array.isArray(rows)?rows[0]||null:rows);
+      }
+      return res.status(405).json({detail:'Method tidak didukung.'});
+    }
     if(action==='questions'){
       if(req.method!=='POST')return res.status(405).json({detail:'Method tidak didukung.'});
       if(!validMentor(body.mentor_code))return res.status(403).json({detail:'Kode mentor tidak valid.'});
