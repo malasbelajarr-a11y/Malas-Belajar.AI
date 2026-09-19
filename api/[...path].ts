@@ -28,8 +28,6 @@ function buildMentorTryout(body:any){
  const ordered=questions.length?questions:mentorQuestions.slice(0,160);
  return {id:`mentor-to-${Date.now()}`,title:String(body.title||"UTBK Tryout Mentor"),description:String(body.description||"Tryout 7 subtes buatan mentor."),duration_minutes:195,question_count:ordered.length,status:"active",max_score:1000,level,questions:ordered};
 }
-function setCookie(res:any,student:any){const token=encodeURIComponent(JSON.stringify(publicStudent(student)));res.setHeader("Set-Cookie",`mls_session=${token}; Path=/; Max-Age=2592000; HttpOnly; SameSite=Lax; Secure`)}
-function readSession(req:any){const raw=String(req.headers?.cookie||""),m=raw.match(/(?:^|;\\s*)mls_session=([^;]+)/);if(!m)return null;try{return JSON.parse(decodeURIComponent(m[1]))}catch{return null}}
 async function auth(req:any,res:any,path:string){
  const body=bodyOf(req),order:Level[]=["nguli","mandor","supervisor"];
  if(path==="/api/auth/me"&&req.method==="GET"){const s=readSession(req);if(!s?.id)return res.status(200).json(null);const st=(await listStudents()).find(x=>x.id===String(s.id));return res.status(200).json(st?publicStudent(st):null)}
