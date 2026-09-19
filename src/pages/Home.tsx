@@ -2410,8 +2410,10 @@ export default function Home() {
   const displayedQuestions = showAllQuestions
     ? activeQuestions
     : activeQuestions.slice(0, 6);
-  const filteredResources = (resourcesQuery.data ?? []).filter(
-    (item) => item.kind === resourceKind,
+  const filteredResources = (resourcesQuery.data ?? []).filter((item) =>
+    resourceKind === "video"
+      ? item.kind === "video"
+      : item.kind === "module" || item.kind === "pdf" || item.kind === "ringkasan" || item.kind === "cheatsheet",
   );
   const activeLive = liveQuery.data?.[0];
   useEffect(() => {
