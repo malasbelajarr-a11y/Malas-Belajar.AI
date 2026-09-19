@@ -1,5 +1,5 @@
 import crypto from "node:crypto";
-import { listStudents, publicStudent, setStudentActive } from "./_lib/studentStore";
+import { accessCodeAlreadyUsed, findStudent, listStudents, markAccessCodeUsed, passwordMatches, publicStudent, saveStudent, setStudentActive } from "./_lib/studentStore";
 import { supabaseConfigured, supabaseRequest } from "./_lib/supabase";
 
 type Level = "nguli" | "mandor" | "supervisor";
