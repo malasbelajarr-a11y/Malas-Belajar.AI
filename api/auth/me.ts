@@ -1,3 +1,7 @@
-import { listStudents, publicStudent } from "../_lib/studentStore";
-function readSession(req:any){const raw=String(req.headers?.cookie||""),m=raw.match(/(?:^|;\s*)mls_session=([^;]+)/);if(!m)return null;try{return JSON.parse(decodeURIComponent(m[1]))}catch{return null}}
-export default async function handler(req:any,res:any){try{if(req.method!=="GET")return res.status(405).json({detail:"Method not allowed"});const s=readSession(req);if(!s?.id)return res.status(200).json(null);const st=(await listStudents()).find(x=>x.id===String(s.id));return res.status(200).json(st?publicStudent(st):null)}catch(error){console.error("AUTH_ME_ERROR",error);return res.status(500).json({detail:error instanceof Error?error.message:String(error)})}}
+export default function handler(req:any,res:any){
+  if(req.method!=="GET")return res.status(405).json({detail:"Method not allowed"});
+  const raw=String(req.headers?.cookie||"");
+  const match=raw.match(/(?:^|;\\s*)mls_session=([^;]+)/);
+  if(!match)return res.status(200).json(null);
+  try{return res.status(200).json(JSON.parse(decodeURIComponent(match[1])))}catch{return res.status(200).json(null)}
+}
