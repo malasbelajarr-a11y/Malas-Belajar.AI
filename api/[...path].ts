@@ -100,7 +100,30 @@ async function persistentContent(req:any,res:any,path:string){
  return null;
 }
 async function content(req:any,res:any,path:string){
- if(path==="/api/rodi/module"&&req.method==="GET"){const {default:app}=await import("../server");return app(req,res)}
+ if(path==="/api/rodi/module"&&req.method==="GET"){
+  const {default:app}=await import("../server");
+  const original:any = await new Promise((resolve,reject)=>{
+    const originalJson=res.json.bind(res);
+    res.json=(value:any)=>{res.json=originalJson;resolve(value);return res};
+    Promise.resolve(app(req,res)).catch(reject);
+  });
+  if(res.headersSent)return res;
+  if(!supabaseConfigured())return res.status(200).json(original);
+  try{
+   const session=readSession(req);
+   const student=session?.id?(await listStudents()).find(s=>s.id===String(session.id)):null;
+   const level=String(student?.level||"nguli");
+   const rows=await supabaseRequest<any[]>("wacawaci_resources?kind=eq.mentor_question&select=*&order=created_at.desc");
+   const mentor=rows.map((r:any)=>{try{return JSON.parse(String(r.description||"{}"))}catch{return null}})
+    .filter((q:any)=>q&&(!q.level||q.level==="all"||q.level===level));
+   const base=original&&Array.isArray(original.questions)?original.questions:[];
+   const merged=[...mentor,...base];
+   return res.status(200).json({...original,total_questions:merged.length,questions:merged});
+  }catch(error){
+   console.error("RODI_MENTOR_BANK_ERROR",error);
+   return res.status(200).json(original);
+  }
+ }
  if(path==="/api/utbaby/sessions"&&req.method==="POST")return res.status(201).json(buildMentorTryout(bodyOf(req)));
  if(path==="/api/utbaby/sessions"&&req.method==="GET")return res.status(200).json(mentorTryouts.map(({questions,...x})=>x));
  if(path.startsWith("/api/utbaby/sessions/")&&req.method==="GET"){const id=path.split("/").pop();const t=mentorTryouts.find(x=>x.id===id)||mentorTryouts[0];if(!t)return res.status(404).json({detail:"Belum ada tryout mentor."});return res.status(200).json(t)}
