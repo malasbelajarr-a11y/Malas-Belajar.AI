@@ -2225,6 +2225,15 @@ export default function Home() {
     retry: false,
   });
 
+  useEffect(() => {
+    if (!mentorUnlocked) return;
+    apiGet<AccessCode[]>(
+      `/admin/access-codes?mentor_code=${encodeURIComponent(mentorCode)}`,
+    )
+      .then((rows) => setGeneratedCodes(Array.isArray(rows) ? rows : []))
+      .catch(() => setGeneratedCodes([]));
+  }, [mentorUnlocked, mentorCode, adminTab]);
+
   const motivationMutation = useMutation({
     mutationFn: (payload: {
       mascot: string;
