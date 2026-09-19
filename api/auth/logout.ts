@@ -1,5 +1,1 @@
-import authHandler from "../_lib/authHandler";
-
-export default async function handler(req: any, res: any) {
-  return authHandler(req, res, "/api/auth/logout");
-}
+export default function handler(req:any,res:any){if(req.method!=="POST")return res.status(405).json({detail:"Method not allowed"});res.setHeader("Set-Cookie","mls_session=; Path=/; Max-Age=0; HttpOnly; SameSite=Lax; Secure");return res.status(200).json({ok:true});}
