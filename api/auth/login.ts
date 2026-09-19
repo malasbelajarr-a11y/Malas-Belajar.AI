@@ -1,5 +1,4 @@
-import authHandler from "../_lib/authHandler";
-
-export default async function handler(req: any, res: any) {
-  return authHandler(req, res, "/api/auth/login");
-}
+import { findStudent, passwordMatches, publicStudent } from "../_lib/studentStore";
+function bodyOf(req:any){if(!req.body)return {};if(typeof req.body==="string"){try{return JSON.parse(req.body)}catch{return {}}}return req.body;}
+function setCookie(res:any,student:any){const token=encodeURIComponent(JSON.stringify(publicStudent(student)));res.setHeader("Set-Cookie","mls_session="+token+"; Path=/; Max-Age=2592000; HttpOnly; SameSite=Lax; Secure");}
+export default async function handler(req:any,res:any){try{if(req.method!=="POST")return res.status(405).json({detail:"Method not allowed"});const body=bodyOf(req),email=String(body.email||"").trim().toLowerCase(),password=String(body.password||"");if(!email||!password)return res.status(400).json({detail:"Email dan password wajib diisi."});const student=await findStudent(email);if(!student)return res.status(401).json({detail:"Email belum terdaftar. Silakan daftar terlebih dahulu."});if(!student.active)return res.status(403).json({detail:"Akun kamu sedang dinonaktifkan."});if(!passwordMatches(student,password))return res.status(401).json({detail:"Password salah."});setCookie(res,student);return res.status(200).json(publicStudent(student));}catch(error){console.error("AUTH_LOGIN_ERROR",error);return res.status(500).json({detail:error instanceof Error?error.message:String(error)})}}
