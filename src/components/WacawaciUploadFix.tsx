@@ -78,7 +78,7 @@ export default function WacawaciUploadFix() {
 
       const input = (testid: string) => document.querySelector<HTMLInputElement>(`[data-testid="${testid}"]`);
       const kind = document.querySelector<HTMLSelectElement>('[data-testid="admin-resource-kind-select"]');
-      const level = document.querySelector<HTMLSelectElement>('[data-testid="admin-content-level-select"]');
+      const level = document.querySelector<HTMLSelectElement>('[data-testid="admin-content-level-select"], [data-testid="level-select"], [data-testid="code-level-select"]');
       const subtest = document.querySelector<HTMLSelectElement>('[data-testid="mentor-subtest-select"], [data-testid="admin-resource-subtest-select"]');
       const title = input("admin-resource-title-input")?.value.trim() || "";
       const description = document.querySelector<HTMLTextAreaElement>('[data-testid="admin-resource-description-input"]')?.value.trim() || "";
