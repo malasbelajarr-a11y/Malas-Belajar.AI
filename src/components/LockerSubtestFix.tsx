@@ -179,13 +179,13 @@ export default function LockerSubtestFix() {
       return;
     }
     try {
-      const created = await apiPost<Question>("/rodi/questions", {
+      const created = await apiPost<Question>("/admin/mentor-bank/questions", {
         mentor_code: "CECEKOKOMLS",
         subtest: selected,
         level,
         prompt,
         answer,
-        topic,
+        topic: topic.trim() || selectedSubbab,
         difficulty,
         options: options.filter(Boolean),
         correct_option: correctOption === "" ? null : Number(correctOption),
