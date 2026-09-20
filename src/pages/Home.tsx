@@ -2114,7 +2114,8 @@ export default function Home() {
   const [view, setView] = useState<View>("dashboard");
   const [notificationsOpen, setNotificationsOpen] = useState(false);
   const [mascot, setMascot] = useState(mascots[0]);
-  const [activeChapter, setActiveChapter] = useState("bab-1");
+  const [activeChapter, setActiveChapter] = useState("pu");
+  const [activeSubbab, setActiveSubbab] = useState("Silogisme");
   const [showAllQuestions, setShowAllQuestions] = useState(false);
   const [answers, setAnswers] = useState<Record<string, string>>({});
   const [solutions, setSolutions] = useState<Record<string, boolean>>({});
@@ -2411,10 +2412,12 @@ export default function Home() {
   };
   const activeQuestions = useMemo(
     () =>
-      (moduleQuery.data?.questions ?? []).filter(
-        (item) => item.chapter === activeChapter || item.chapter === "mentor",
-      ),
-    [moduleQuery.data, activeChapter],
+      (moduleQuery.data?.questions ?? []).filter((item) => {
+        if (item.chapter !== activeChapter && item.chapter !== "mentor") return false;
+        if (item.chapter === "mentor") return true;
+        return !activeSubbab || String(item.topic || "").toLowerCase().includes(activeSubbab.toLowerCase());
+      }),
+    [moduleQuery.data, activeChapter, activeSubbab],
   );
   const displayedQuestions = showAllQuestions
     ? activeQuestions
@@ -2923,20 +2926,23 @@ export default function Home() {
                 <div>
                   <p className="pixel-label">DRILL INTI RODI</p>
                   <h2 className="pixel-title text-2xl text-violet-950">
-                    110 SOAL MATEMATIKA
+                    PAKET SUBBAB RODI
                   </h2>
                 </div>
                 <div className="flex gap-2">
                   <select
                     value={activeChapter}
-                    onChange={(event) => setActiveChapter(event.target.value)}
+                    onChange={(event) => { setActiveChapter(event.target.value); setActiveSubbab("Silogisme"); }}
                     className="form-select"
                     data-testid="rodi-chapter-select"
                   >
-                    <option value="bab-1">Operasi Bilangan</option>
-                    <option value="bab-2">Eksponen</option>
-                    <option value="bab-3">Bentuk Akar</option>
-                    <option value="final">Latihan Akhir</option>
+                    <option value="pu">PU</option>
+                    <option value="ppu">PPU</option>
+                    <option value="pbm">PBM</option>
+                    <option value="pk">PK</option>
+                    <option value="lit_indo">Literasi Indonesia</option>
+                    <option value="lit_inggris">Literasi Inggris</option>
+                    <option value="pm">PM</option>
                   </select>
                   <Button
                     variant="outline"
@@ -2945,6 +2951,30 @@ export default function Home() {
                   >
                     Cetak
                   </Button>
+                </div>
+              </div>
+              <div className="mt-4 rounded-xl border-2 border-violet-950 bg-white p-4">
+                <p className="pixel-label">PAKET SUBBAB</p>
+                <div className="mt-3 flex flex-wrap gap-2">
+                  {(activeChapter === "pu"
+                    ? ["Silogisme","Implikasi","Bimplikasi","Penalaran Deduktif","Penalaran Induktif","Analogi"]
+                    : activeChapter === "pk"
+                      ? ["Bilangan","Aljabar","Fungsi","Geometri","Statistika","Kecukupan Data"]
+                      : activeChapter === "pbm"
+                        ? ["Ide Pokok","Kalimat Efektif","Konjungsi","Kepaduan Paragraf","Ejaan"]
+                        : activeChapter === "ppu"
+                          ? ["Makna Kata","Sinonim & Antonim","Makna Kontekstual","Istilah"]
+                          : activeChapter === "lit_inggris"
+                            ? ["Main Idea","Detail Information","Inference","Author Purpose & Tone","Vocabulary"]
+                            : activeChapter === "lit_indo"
+                              ? ["Ide Pokok & Isi Teks","Inferensi","Sikap Penulis","Makna Konteks","Evaluasi Argumen"]
+                              : ["Pemodelan","Aritmetika","Aljabar","Data & Statistika","Peluang","Optimasi"]
+                  ).map((subbab) => (
+                    <button key={subbab} type="button" onClick={() => setActiveSubbab(subbab)}
+                      className={"rounded-lg border-2 border-violet-950 px-3 py-2 text-xs font-black " + (activeSubbab === subbab ? "bg-pink-300" : "bg-violet-50")}>
+                      {subbab}
+                    </button>
+                  ))}
                 </div>
               </div>
               <div className="mt-5 grid gap-4 lg:grid-cols-2">
