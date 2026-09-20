@@ -295,6 +295,15 @@ export default function LockerSubtestFix() {
 
         {mentor && mentorTab === "rodi" && (
           <section className="border-b-4 border-violet-950 bg-violet-50 p-5">
+            <div className="mb-4 flex flex-wrap gap-2">
+              <button type="button" onClick={() => setRodiMode("soal")} className={`rounded-lg border-2 border-violet-950 px-5 py-3 font-black ${rodiMode === "soal" ? "bg-yellow-300" : "bg-white"}`}>TAMBAH SOAL</button>
+              <button type="button" onClick={() => setRodiMode("materi")} className={`rounded-lg border-2 border-violet-950 px-5 py-3 font-black ${rodiMode === "materi" ? "bg-pink-300" : "bg-white"}`}>TAMBAH MATERI</button>
+            </div>
+            <div className="mb-4 rounded-xl border-2 border-violet-950 bg-white p-3">
+              <p className="font-mono text-[10px] font-black uppercase text-violet-600">PAKET SUBBAB</p>
+              <div className="mt-2 flex flex-wrap gap-2">{(SUBBAB_BY_SUBTEST[selected] || []).map((subbab) => <button key={subbab} type="button" onClick={() => setSelectedSubbab(subbab)} className={`rounded-lg border-2 border-violet-950 px-3 py-2 text-xs font-black ${selectedSubbab === subbab ? "bg-pink-300" : "bg-violet-50"}`}>{subbab}</button>)}</div>
+            </div>
+            {rodiMode === "soal" && (
             <div className="grid gap-3 md:grid-cols-2">
               <select value={selected} onChange={(e) => setSelected(e.target.value)} className="rounded-lg border-2 border-violet-950 bg-white p-3 font-bold md:col-span-2">
                 {SUBTESTS.map((s) => <option key={s.id} value={s.id}>{s.label}</option>)}
@@ -327,6 +336,18 @@ export default function LockerSubtestFix() {
               <input value={trapTip} onChange={(e) => setTrapTip(e.target.value)} placeholder="Jebakan soal (opsional)" className="rounded-lg border-2 border-violet-950 bg-white p-3 md:col-span-2" />
               <button onClick={addRodi} className="rounded-lg border-2 border-violet-950 bg-yellow-300 px-5 py-3 font-black md:col-span-2"><Plus className="mr-2 inline h-4 w-4" /> TAMBAH SOAL</button>
             </div>
+            )}
+            {rodiMode === "materi" && (
+              <div className="grid gap-3 md:grid-cols-2">
+                <select value={level} onChange={(e) => setLevel(e.target.value as Level)} className="rounded-lg border-2 border-violet-950 bg-white p-3 font-bold">
+                  <option value="nguli">Nguli</option><option value="mandor">Mandor</option><option value="supervisor">Supervisor</option>
+                </select>
+                <input value={materialTitle} onChange={(e) => setMaterialTitle(e.target.value)} placeholder="Judul materi" className="rounded-lg border-2 border-violet-950 bg-white p-3" />
+                <textarea value={materialText} onChange={(e) => setMaterialText(e.target.value)} placeholder="Isi materi untuk siswa..." className="min-h-40 rounded-lg border-2 border-violet-950 bg-white p-3 md:col-span-2" />
+                <input value={materialUrl} onChange={(e) => setMaterialUrl(e.target.value)} placeholder="Link tambahan (opsional)" className="rounded-lg border-2 border-violet-950 bg-white p-3 md:col-span-2" />
+                <button onClick={addRodiMaterial} className="rounded-lg border-2 border-violet-950 bg-pink-300 px-5 py-3 font-black md:col-span-2"><FileText className="mr-2 inline h-4 w-4" /> SIMPAN MATERI RODI</button>
+              </div>
+            )}
           </section>
         )}
 
