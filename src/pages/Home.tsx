@@ -66,6 +66,8 @@ interface Question {
   level: string;
   trap_tip: string;
   video_url: string;
+  material?: string;
+  file_url?: string;
 }
 interface ModuleResponse {
   title: string;
@@ -2415,7 +2417,9 @@ export default function Home() {
       (moduleQuery.data?.questions ?? []).filter((item) => {
         if (item.chapter !== activeChapter && item.chapter !== "mentor") return false;
         if (item.chapter === "mentor") return true;
-        return !activeSubbab || String(item.topic || "").toLowerCase().includes(activeSubbab.toLowerCase());
+        const topic = String(item.topic || "").toLowerCase();
+        const subbab = String((item as any).subbab || "").toLowerCase();
+        return !activeSubbab || topic.includes(activeSubbab.toLowerCase()) || subbab.includes(activeSubbab.toLowerCase());
       }),
     [moduleQuery.data, activeChapter, activeSubbab],
   );
@@ -2999,6 +3003,17 @@ export default function Home() {
                       </CardTitle>
                     </CardHeader>
                     <CardContent>
+                      {question.material && (
+                        <div className="mb-3 rounded-lg border-2 border-violet-200 bg-violet-50 p-3 text-xs leading-relaxed text-violet-950">
+                          <p className="font-black">MATERI TERKAIT</p>
+                          <p className="mt-1 whitespace-pre-wrap">{question.material}</p>
+                        </div>
+                      )}
+                      {question.file_url && (
+                        <a href={question.file_url} target="_blank" rel="noreferrer" className="mb-3 inline-flex rounded-lg border-2 border-violet-950 bg-yellow-300 px-3 py-2 text-xs font-black text-violet-950 underline">
+                          CETAK RODI · BUKA GOOGLE DRIVE
+                        </a>
+                      )}
                       <div className="flex gap-2">
                         <Input
                           value={answers[question.id] ?? ""}
