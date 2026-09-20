@@ -33,6 +33,8 @@ interface Question {
   prompt: string;
   answer: string;
   options: string[];
+  subbab?: string;
+  material?: string;
 }
 
 interface Resource {
@@ -103,6 +105,7 @@ export default function LockerSubtestFix() {
   const [materialTitle, setMaterialTitle] = useState("");
   const [materialText, setMaterialText] = useState("");
   const [materialUrl, setMaterialUrl] = useState("");
+  const [material, setMaterial] = useState("");
 
   useEffect(() => {
     const detect = () => {
@@ -186,6 +189,8 @@ export default function LockerSubtestFix() {
         prompt,
         answer,
         topic: topic.trim() || selectedSubbab,
+        subbab: selectedSubbab,
+        material: material.trim(),
         difficulty,
         options: options.filter(Boolean),
         correct_option: correctOption === "" ? null : Number(correctOption),
@@ -197,6 +202,7 @@ export default function LockerSubtestFix() {
       setPrompt("");
       setAnswer("");
       setTopic("");
+      setMaterial("");
       setOptions(["", "", "", "", ""]);
       setCorrectOption("");
       setStepsText("");
@@ -299,15 +305,15 @@ export default function LockerSubtestFix() {
               <button type="button" onClick={() => setRodiMode("soal")} className={`rounded-lg border-2 border-violet-950 px-5 py-3 font-black ${rodiMode === "soal" ? "bg-yellow-300" : "bg-white"}`}>TAMBAH SOAL</button>
               <button type="button" onClick={() => setRodiMode("materi")} className={`rounded-lg border-2 border-violet-950 px-5 py-3 font-black ${rodiMode === "materi" ? "bg-pink-300" : "bg-white"}`}>TAMBAH MATERI</button>
             </div>
-            <div className="mb-4 rounded-xl border-2 border-violet-950 bg-white p-3">
-              <p className="font-mono text-[10px] font-black uppercase text-violet-600">PAKET SUBBAB</p>
-              <div className="mt-2 flex flex-wrap gap-2">{(SUBBAB_BY_SUBTEST[selected] || []).map((subbab) => <button key={subbab} type="button" onClick={() => setSelectedSubbab(subbab)} className={`rounded-lg border-2 border-violet-950 px-3 py-2 text-xs font-black ${selectedSubbab === subbab ? "bg-pink-300" : "bg-violet-50"}`}>{subbab}</button>)}</div>
-            </div>
             {rodiMode === "soal" && (
             <div className="grid gap-3 md:grid-cols-2">
-              <select value={selected} onChange={(e) => setSelected(e.target.value)} className="rounded-lg border-2 border-violet-950 bg-white p-3 font-bold md:col-span-2">
+              <select value={selected} onChange={(e) => { const next = e.target.value; setSelected(next); setSelectedSubbab(SUBBAB_BY_SUBTEST[next]?.[0] || ""); }} className="rounded-lg border-2 border-violet-950 bg-white p-3 font-bold md:col-span-2">
                 {SUBTESTS.map((s) => <option key={s.id} value={s.id}>{s.label}</option>)}
               </select>
+              <select value={selectedSubbab} onChange={(e) => setSelectedSubbab(e.target.value)} className="rounded-lg border-2 border-violet-950 bg-white p-3 font-bold md:col-span-2">
+                {(SUBBAB_BY_SUBTEST[selected] || []).map((subbab) => <option key={subbab} value={subbab}>{subbab}</option>)}
+              </select>
+              <textarea value={material} onChange={(e) => setMaterial(e.target.value)} placeholder="Materi / konsep untuk subbab ini — bisa diisi mentor" className="min-h-28 rounded-lg border-2 border-violet-950 bg-white p-3 md:col-span-2" />
               <select value={level} onChange={(e) => setLevel(e.target.value as Level)} className="rounded-lg border-2 border-violet-950 bg-white p-3 font-bold">
                 <option value="nguli">Nguli</option>
                 <option value="mandor">Mandor</option>
@@ -423,6 +429,8 @@ export default function LockerSubtestFix() {
                   {visibleQuestions.map((q) => (
                     <article key={q.id} className="rounded-xl border-2 border-violet-200 bg-white p-4">
                       <div className="flex justify-between"><b>#{q.number}</b><span className="text-xs font-bold text-pink-600">{q.difficulty}</span></div>
+                      <p className="mt-3 text-xs font-black uppercase text-pink-600">{q.subbab || q.topic || selectedSubbab}</p>
+                      {q.material ? <div className="mt-2 rounded-lg bg-yellow-100 p-3 text-sm text-violet-950 whitespace-pre-wrap"><b>Materi:</b> {q.material}</div> : null}
                       <p className="mt-3 font-black text-violet-950">{q.prompt}</p>
                       {q.options?.length ? <div className="mt-3 space-y-1 text-sm">{q.options.map((o, i) => <p key={i}>{String.fromCharCode(65 + i)}. {o}</p>)}</div> : null}
                       <p className="mt-3 text-xs text-slate-600">Jawaban: {q.answer}</p>
