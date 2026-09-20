@@ -57,11 +57,11 @@ async function admin(req:any,res:any,path:string){const body=bodyOf(req);if(path
 }
 async function persistentContent(req:any,res:any,path:string){
  const body=bodyOf(req);
- const wacaKinds="video,module,pdf,ringkasan,cheatsheet";
+ const wacaKinds="video,module,pdf,ringkasan,cheatsheet,rodi_material";
  const decodeWaca=(row:any)=>{
   let description=String(row?.description||""),subtest="";
   try{const meta=JSON.parse(description);if(meta&&typeof meta==="object"&&meta.__mls_wacawaci){description=String(meta.description||"");subtest=String(meta.subtest||"");}}catch{}
-  return {id:String(row.id),kind:String(row.kind||"module"),title:String(row.title||""),description,url:String(row.url||""),is_public:Boolean(row.is_public),created_by:String(row.created_by||""),level:String(row.level||"nguli"),subtest};
+  let subbab="";\n  try{const meta=JSON.parse(String(row?.description||""));if(meta&&typeof meta==="object"&&meta.__mls_wacawaci){subbab=String(meta.subbab||"");}}catch{}\n  return {id:String(row.id),kind:String(row.kind||"module"),title:String(row.title||""),description,url:String(row.url||""),is_public:Boolean(row.is_public),created_by:String(row.created_by||""),level:String(row.level||"nguli"),subtest,subbab};
  };
  const decodeLive=(row:any)=>{
   let meta:any={};try{meta=JSON.parse(String(row?.description||"{}"));}catch{}
@@ -72,10 +72,10 @@ async function persistentContent(req:any,res:any,path:string){
   if(req.method==="DELETE"){if(!validMentorCode(req.query?.mentor_code||body.mentor_code))return res.status(401).json({detail:"Kode mentor tidak cocok."});if(!supabaseConfigured())return res.status(500).json({detail:"Penyimpanan Supabase belum aktif."});const id=String(req.query?.id||body.id||"").trim();await supabaseRequest("wacawaci_resources?id=eq."+encodeURIComponent(id),{method:"DELETE"});return res.status(200).json({ok:true,id});}
   if(req.method==="POST"){
    if(!validMentorCode(body.mentor_code))return res.status(401).json({detail:"Kode mentor tidak cocok."});if(!supabaseConfigured())return res.status(500).json({detail:"Penyimpanan Supabase belum aktif."});
-   const allowed=["video","module","pdf","ringkasan","cheatsheet"],kind=allowed.includes(String(body.kind))?String(body.kind):"module",title=String(body.title||"").trim(),url=String(body.url||"").trim();
-   if(!title)return res.status(400).json({detail:"Judul materi wajib diisi."});if(!url)return res.status(400).json({detail:"Masukkan link atau file materi."});
-   const resource={id:"res-"+Date.now()+"-"+crypto.randomBytes(3).toString("hex"),kind,title,description:String(body.description||"").trim(),url,is_public:true,created_by:"Mentor Malas Belajar",level:["nguli","mandor","supervisor"].includes(String(body.level))?String(body.level):"nguli",subtest:String(body.subtest||"pu")};
-   await supabaseRequest("wacawaci_resources",{method:"POST",headers:{Prefer:"return=minimal"},body:JSON.stringify({id:resource.id,kind:resource.kind,title:resource.title,description:JSON.stringify({__mls_wacawaci:true,description:resource.description,subtest:resource.subtest}),url:resource.url,is_public:true,created_by:resource.created_by,level:resource.level})});
+   const allowed=["video","module","pdf","ringkasan","cheatsheet","rodi_material"],kind=allowed.includes(String(body.kind))?String(body.kind):"module",title=String(body.title||"").trim(),url=String(body.url||"").trim();
+   if(!title)return res.status(400).json({detail:"Judul materi wajib diisi."});if(!url && kind!=="rodi_material")return res.status(400).json({detail:"Masukkan link atau file materi."});
+   const resource={id:"res-"+Date.now()+"-"+crypto.randomBytes(3).toString("hex"),kind,title,description:String(body.description||"").trim(),url,is_public:true,created_by:"Mentor Malas Belajar",level:["nguli","mandor","supervisor"].includes(String(body.level))?String(body.level):"nguli",subtest:String(body.subtest||"pu"),subbab:String(body.subbab||"")};
+   await supabaseRequest("wacawaci_resources",{method:"POST",headers:{Prefer:"return=minimal"},body:JSON.stringify({id:resource.id,kind:resource.kind,title:resource.title,description:JSON.stringify({__mls_wacawaci:true,description:resource.description,subtest:resource.subtest,subbab:resource.subbab}),url:resource.url,is_public:true,created_by:resource.created_by,level:resource.level})});
    return res.status(201).json(resource);
   }
   return res.status(405).json({detail:"Method not allowed"});
