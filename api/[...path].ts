@@ -61,7 +61,9 @@ async function persistentContent(req:any,res:any,path:string){
  const decodeWaca=(row:any)=>{
   let description=String(row?.description||""),subtest="";
   try{const meta=JSON.parse(description);if(meta&&typeof meta==="object"&&meta.__mls_wacawaci){description=String(meta.description||"");subtest=String(meta.subtest||"");}}catch{}
-  let subbab="";\n  try{const meta=JSON.parse(String(row?.description||""));if(meta&&typeof meta==="object"&&meta.__mls_wacawaci){subbab=String(meta.subbab||"");}}catch{}\n  return {id:String(row.id),kind:String(row.kind||"module"),title:String(row.title||""),description,url:String(row.url||""),is_public:Boolean(row.is_public),created_by:String(row.created_by||""),level:String(row.level||"nguli"),subtest,subbab};
+  let subbab="";
+  try{const meta=JSON.parse(String(row?.description||""));if(meta&&typeof meta==="object"&&meta.__mls_wacawaci){subbab=String(meta.subbab||"");}}catch{}
+  return {id:String(row.id),kind:String(row.kind||"module"),title:String(row.title||""),description,url:String(row.url||""),is_public:Boolean(row.is_public),created_by:String(row.created_by||""),level:String(row.level||"nguli"),subtest,subbab};
  };
  const decodeLive=(row:any)=>{
   let meta:any={};try{meta=JSON.parse(String(row?.description||"{}"));}catch{}
