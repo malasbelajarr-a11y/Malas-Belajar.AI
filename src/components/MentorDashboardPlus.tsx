@@ -45,21 +45,20 @@ export default function MentorDashboardPlus() {
 
   const load = async () => {
     setLoading(true);
-    try {
-      const code = mentorCode();
-      const [studentRows, leaderboardRows, liveRows, codeRows] = await Promise.all([
-        jsonRequest<Student[]>(`/api/admin/students?mentor_code=${encodeURIComponent(code)}`),
-        apiGet<LeaderboardEntry[]>("/utbaby/leaderboard"),
-        apiGet<LiveClass[]>("/live-classes"),
-        jsonRequest<AccessCode[]>(`/api/admin/access-codes?mentor_code=${encodeURIComponent(code)}`),
-      ]);
-      setStudents(Array.isArray(studentRows) ? studentRows : []);
-      setRanking(Array.isArray(leaderboardRows) ? leaderboardRows : []);
-      setLives(Array.isArray(liveRows) ? liveRows : []);
-      setCodes(Array.isArray(codeRows) ? codeRows : []);
-    } catch (error: any) {
-      toast.error(error?.message || "Data Mentor belum bisa dimuat.");
-    } finally { setLoading(false); }
+    const code = mentorCode();
+    const results = await Promise.allSettled([
+      jsonRequest<Student[]>(`/api/admin/students?mentor_code=${encodeURIComponent(code)}`),
+      apiGet<LeaderboardEntry[]>("/utbaby/leaderboard"),
+      apiGet<LiveClass[]>("/live-classes"),
+      jsonRequest<AccessCode[]>(`/api/admin/access-codes?mentor_code=${encodeURIComponent(code)}`),
+    ]);
+    const [studentResult, rankingResult, liveResult, codeResult] = results;
+    if (studentResult.status === "fulfilled") setStudents(Array.isArray(studentResult.value) ? studentResult.value : []);
+    else toast.error(studentResult.reason?.message || "Panel siswa gagal dimuat.");
+    if (rankingResult.status === "fulfilled") setRanking(Array.isArray(rankingResult.value) ? rankingResult.value : []);
+    if (liveResult.status === "fulfilled") setLives(Array.isArray(liveResult.value) ? liveResult.value : []);
+    if (codeResult.status === "fulfilled") setCodes(Array.isArray(codeResult.value) ? codeResult.value : []);
+    setLoading(false);
   };
 
   useEffect(() => {
