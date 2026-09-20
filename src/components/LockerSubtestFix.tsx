@@ -405,10 +405,17 @@ export default function LockerSubtestFix() {
                   ))}
                 </div>
               </div>
+              <div className="mt-4 rounded-xl border-2 border-violet-950 bg-white p-4">
+                <p className="font-mono text-[10px] font-black uppercase tracking-widest text-violet-600">ISI PAKET</p>
+                <div className="mt-3 flex gap-2">
+                  <button type="button" onClick={() => setRodiMode("soal")} className={`rounded-lg border-2 border-violet-950 px-4 py-2 text-xs font-black ${rodiMode === "soal" ? "bg-yellow-300" : "bg-violet-50"}`}>SOAL</button>
+                  <button type="button" onClick={() => setRodiMode("materi")} className={`rounded-lg border-2 border-violet-950 px-4 py-2 text-xs font-black ${rodiMode === "materi" ? "bg-pink-300" : "bg-violet-50"}`}>MATERI</button>
+                </div>
+              </div>
             </div>
           )}
 
-          {active === "rodi" || (mentor && mentorTab === "rodi") ? (
+          {active === "rodi" && rodiMode === "soal" ? (
             <div className="border-t-4 border-violet-950 bg-violet-50 p-5">
               <h2 className="mb-4 text-xl font-black text-violet-950">{SUBTESTS.find((s) => s.id === selected)?.label}</h2>
               {loading ? <p className="py-10 text-center font-bold">Memuat…</p> : visibleQuestions.length ? (
@@ -423,6 +430,17 @@ export default function LockerSubtestFix() {
                   ))}
                 </div>
               ) : <p className="py-10 text-center font-bold text-slate-500">Belum ada soal untuk subtes ini.</p>}
+            </div>
+          ) : null}
+
+          {active === "rodi" && rodiMode === "materi" ? (
+            <div className="border-t-4 border-violet-950 bg-violet-50 p-5">
+              <h2 className="text-xl font-black text-violet-950">{SUBTESTS.find((s) => s.id === selected)?.label} · Materi {selectedSubbab}</h2>
+              {loading ? <p className="py-10 text-center font-bold">Memuat…</p> : visibleMaterials.length ? (
+                <div className="mt-5 grid gap-4 md:grid-cols-2">
+                  {visibleMaterials.map((m) => <article key={m.id} className="rounded-xl border-2 border-violet-200 bg-white p-5"><h3 className="text-lg font-black text-violet-950">{m.title}</h3><div className="mt-3 whitespace-pre-wrap text-sm leading-relaxed text-slate-700">{m.description}</div>{m.url ? <a href={m.url} target="_blank" rel="noreferrer" className="mt-4 inline-block font-black text-pink-600 underline">LINK TAMBAHAN →</a> : null}</article>)}
+                </div>
+              ) : <p className="py-10 text-center font-bold text-slate-500">Belum ada materi untuk subbab ini.</p>}
             </div>
           ) : null}
 
