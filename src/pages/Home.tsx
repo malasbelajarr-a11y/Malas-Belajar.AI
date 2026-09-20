@@ -2932,7 +2932,7 @@ export default function Home() {
                 <div className="flex gap-2">
                   <select
                     value={activeChapter}
-                    onChange={(event) => { setActiveChapter(event.target.value); setActiveSubbab("Silogisme"); }}
+                    onChange={(event) => { setActiveChapter(event.target.value); setActiveSubbab(""); }}
                     className="form-select"
                     data-testid="rodi-chapter-select"
                   >
@@ -3103,6 +3103,17 @@ export default function Home() {
                 MODUL
               </PixelButton>
             </div>
+            {resourcesQuery.isError && (
+              <div className="mt-6 rounded-xl border-2 border-pink-500 bg-white p-4 text-sm font-bold text-pink-700">
+                Wacawaci gagal dimuat dari server. Coba refresh halaman; data materi tidak dihapus.
+              </div>
+            )}
+            {!resourcesQuery.isLoading && !resourcesQuery.isError && !filteredResources.length && (
+              <div className="mt-6 rounded-xl border-2 border-dashed border-violet-300 bg-white p-8 text-center">
+                <p className="font-black text-violet-950">Belum ada materi di kategori ini.</p>
+                <p className="mt-1 text-xs text-slate-500">Materi mentor yang tersimpan akan muncul di sini otomatis.</p>
+              </div>
+            )}
             <section className="mt-6 grid gap-5 sm:grid-cols-2 lg:grid-cols-3">
               {filteredResources.map((resource) => (
                 <article
