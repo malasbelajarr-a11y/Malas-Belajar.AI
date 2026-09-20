@@ -2182,7 +2182,10 @@ export default function Home() {
     queryKey: ["wacawaci", user?.level],
     queryFn: () => apiGet<Resource[]>("/wacawaci/resources"),
     enabled: Boolean(user && view === "wacawaci"),
-    retry: false,
+    retry: 2,
+    staleTime: 0,
+    refetchOnMount: "always",
+    refetchOnWindowFocus: true,
   });
   const liveQuery = useQuery({
     queryKey: ["live-classes", user?.level],
