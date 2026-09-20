@@ -79,7 +79,7 @@ export default function LockerSubtestFix() {
   const [mentorTab, setMentorTab] = useState<"rodi" | "wacawaci">("rodi");
   const [selected, setSelected] = useState("pu");
   const [selectedSubbab, setSelectedSubbab] = useState("Silogisme");
-  const [kind, setKind] = useState<Kind>("video");
+  const [kind, setKind] = useState<Kind>("module");
   const [level, setLevel] = useState<Level>("nguli");
   const [questions, setQuestions] = useState<Question[]>([]);
   const [resources, setResources] = useState<Resource[]>([]);
