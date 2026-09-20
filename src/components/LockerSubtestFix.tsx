@@ -106,14 +106,15 @@ export default function LockerSubtestFix() {
   const [materialText, setMaterialText] = useState("");
   const [materialUrl, setMaterialUrl] = useState("");
   const [material, setMaterial] = useState("");
+  const [fileUrl, setFileUrl] = useState("");
 
   useEffect(() => {
     const detect = () => {
-      const hasRodi = Boolean(document.querySelector('[data-testid="rodi-locker"]'));
-      const hasWaca = Boolean(document.querySelector('[data-testid="wacawaci-locker"]'));
       const text = document.body.innerText || "";
       const isMentor = Boolean(document.querySelector('[data-testid="admin-resource-kind-select"]')) || text.includes("BUAT KODE SEKALI PAKAI") || text.includes("GENERATE 3 KODE");
-      setActive(hasRodi ? "rodi" : hasWaca ? "wacawaci" : null);
+      // Loker siswa RODI/Wacawaci sudah dirender Home.tsx. Overlay ini khusus mentor
+      // agar tidak menimpa tampilan siswa.
+      setActive(null);
       setMentor(isMentor);
 
       const badge = document.querySelector('[data-testid="header-level-badge"]')?.textContent?.toLowerCase() || "";
@@ -191,6 +192,7 @@ export default function LockerSubtestFix() {
         topic: topic.trim() || selectedSubbab,
         subbab: selectedSubbab,
         material: material.trim(),
+        file_url: fileUrl.trim(),
         difficulty,
         options: options.filter(Boolean),
         correct_option: correctOption === "" ? null : Number(correctOption),
@@ -203,6 +205,7 @@ export default function LockerSubtestFix() {
       setAnswer("");
       setTopic("");
       setMaterial("");
+      setFileUrl("");
       setOptions(["", "", "", "", ""]);
       setCorrectOption("");
       setStepsText("");
@@ -264,7 +267,7 @@ export default function LockerSubtestFix() {
     }
   };
 
-  if (!active && !mentor) return null;
+  if (!mentor) return null;
 
   const closeOverlay = () => {
     const back = document.querySelector('[data-testid="global-back-button"]') as HTMLButtonElement | null;
@@ -314,6 +317,7 @@ export default function LockerSubtestFix() {
                 {(SUBBAB_BY_SUBTEST[selected] || []).map((subbab) => <option key={subbab} value={subbab}>{subbab}</option>)}
               </select>
               <textarea value={material} onChange={(e) => setMaterial(e.target.value)} placeholder="Materi / konsep untuk subbab ini — bisa diisi mentor" className="min-h-28 rounded-lg border-2 border-violet-950 bg-white p-3 md:col-span-2" />
+              <input value={fileUrl} onChange={(e) => setFileUrl(e.target.value)} placeholder="Link Google Drive untuk cetak RODI (opsional)" className="rounded-lg border-2 border-violet-950 bg-white p-3 md:col-span-2" />
               <select value={level} onChange={(e) => setLevel(e.target.value as Level)} className="rounded-lg border-2 border-violet-950 bg-white p-3 font-bold">
                 <option value="nguli">Nguli</option>
                 <option value="mandor">Mandor</option>
