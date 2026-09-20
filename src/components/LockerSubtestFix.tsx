@@ -15,6 +15,15 @@ const SUBTESTS = [
   { id: "lit_inggris", label: "Literasi Bahasa Inggris" },
   { id: "pm", label: "Penalaran Matematika (PM)" },
 ] as const;
+const SUBBAB_BY_SUBTEST: Record<string, string[]> = {
+  pu: ["Silogisme", "Implikasi", "Bimplikasi", "Penalaran Deduktif", "Penalaran Induktif", "Analogi"],
+  ppu: ["Makna Kata", "Sinonim & Antonim", "Makna Kontekstual", "Istilah"],
+  pbm: ["Ide Pokok", "Kalimat Efektif", "Konjungsi", "Kepaduan Paragraf", "Ejaan"],
+  pk: ["Bilangan", "Aljabar", "Fungsi", "Geometri", "Statistika", "Kecukupan Data"],
+  lit_indo: ["Ide Pokok & Isi Teks", "Inferensi", "Sikap Penulis", "Makna Konteks", "Evaluasi Argumen"],
+  lit_inggris: ["Main Idea", "Detail Information", "Inference", "Author Purpose & Tone", "Vocabulary"],
+  pm: ["Pemodelan", "Aritmetika", "Aljabar", "Data & Statistika", "Peluang", "Optimasi"],
+};
 
 interface Question {
   id: string;
@@ -69,6 +78,7 @@ export default function LockerSubtestFix() {
   const [mentor, setMentor] = useState(false);
   const [mentorTab, setMentorTab] = useState<"rodi" | "wacawaci">("rodi");
   const [selected, setSelected] = useState("pu");
+  const [selectedSubbab, setSelectedSubbab] = useState("Silogisme");
   const [kind, setKind] = useState<Kind>("video");
   const [level, setLevel] = useState<Level>("nguli");
   const [questions, setQuestions] = useState<Question[]>([]);
@@ -127,12 +137,29 @@ export default function LockerSubtestFix() {
   }, [active, mentor]);
 
   const visibleQuestions = useMemo(
-    () => questions.filter((q) => q.chapter === selected),
-    [questions, selected],
+    () =>
+      questions.filter((q) => {
+        if (q.chapter !== selected) return false;
+        if (!selectedSubbab) return true;
+        return String((q as any).topic || "").toLowerCase().includes(selectedSubbab.toLowerCase());
+      }),
+    [questions, selected, selectedSubbab],
   );
 
   const visibleResources = useMemo(
-    () => resources.filter((r) => r.kind === kind && (!r.subtest || r.subtest === selected) && (!r.level || r.level === level)),
+    () =>
+      resources.filter((r) => {
+        const kindMatches =
+          r.kind === kind ||
+          (kind === "module" && ["pdf", "ringkasan", "cheatsheet"].includes(r.kind));
+        if (!kindMatches) return false;
+        const resourceSubtest = String(r.subtest || "").trim();
+        const resourceLevel = String(r.level || "").toLowerCase();
+        return (
+          (!resourceSubtest || resourceSubtest === selected) &&
+          (!resourceLevel || resourceLevel === "all" || resourceLevel === level)
+        );
+      }),
     [resources, kind, selected, level],
   );
 
@@ -305,13 +332,37 @@ export default function LockerSubtestFix() {
 
         <section className="p-5">
           {!mentor && (
-            <div className="mb-5 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-              {SUBTESTS.map((s, index) => (
-                <button key={s.id} onClick={() => setSelected(s.id)} className={`rounded-xl border-4 border-violet-950 p-4 text-left shadow-[3px_3px_0_#2e1065] ${selected === s.id ? "bg-yellow-300" : "bg-violet-50"}`}>
-                  <span className="font-mono text-xs font-black text-pink-600">0{index + 1}</span>
-                  <p className="mt-2 font-black text-violet-950">{s.label}</p>
-                </button>
-              ))}
+            <div className="mb-5">
+              <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+                {SUBTESTS.map((s, index) => (
+                  <button
+                    key={s.id}
+                    onClick={() => {
+                      setSelected(s.id);
+                      setSelectedSubbab(SUBBAB_BY_SUBTEST[s.id]?.[0] || "");
+                    }}
+                    className={`rounded-xl border-4 border-violet-950 p-4 text-left shadow-[3px_3px_0_#2e1065] ${selected === s.id ? "bg-yellow-300" : "bg-violet-50"}`}
+                  >
+                    <span className="font-mono text-xs font-black text-pink-600">0{index + 1}</span>
+                    <p className="mt-2 font-black text-violet-950">{s.label}</p>
+                  </button>
+                ))}
+              </div>
+              <div className="mt-4 rounded-xl border-2 border-violet-950 bg-white p-4">
+                <p className="font-mono text-[10px] font-black uppercase tracking-widest text-violet-600">PAKET SUBBAB</p>
+                <div className="mt-3 flex flex-wrap gap-2">
+                  {(SUBBAB_BY_SUBTEST[selected] || []).map((subbab) => (
+                    <button
+                      key={subbab}
+                      type="button"
+                      onClick={() => setSelectedSubbab(subbab)}
+                      className={`rounded-lg border-2 border-violet-950 px-3 py-2 text-xs font-black ${selectedSubbab === subbab ? "bg-pink-300" : "bg-violet-50"}`}
+                    >
+                      {subbab}
+                    </button>
+                  ))}
+                </div>
+              </div>
             </div>
           )}
 
