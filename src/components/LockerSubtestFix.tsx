@@ -43,6 +43,7 @@ interface Resource {
   url: string;
   level: string;
   subtest?: string;
+  subbab?: string;
 }
 
 const STORAGE_KEY = "mls_wacawaci_resources_v1";
@@ -77,6 +78,7 @@ export default function LockerSubtestFix() {
   const [active, setActive] = useState<"rodi" | "wacawaci" | null>(null);
   const [mentor, setMentor] = useState(false);
   const [mentorTab, setMentorTab] = useState<"rodi" | "wacawaci">("rodi");
+  const [rodiMode, setRodiMode] = useState<"soal" | "materi">("soal");
   const [selected, setSelected] = useState("pu");
   const [selectedSubbab, setSelectedSubbab] = useState("Silogisme");
   const [kind, setKind] = useState<Kind>("module");
@@ -98,6 +100,9 @@ export default function LockerSubtestFix() {
   const [stepsText, setStepsText] = useState("");
   const [trapTip, setTrapTip] = useState("");
   const [videoUrl, setVideoUrl] = useState("");
+  const [materialTitle, setMaterialTitle] = useState("");
+  const [materialText, setMaterialText] = useState("");
+  const [materialUrl, setMaterialUrl] = useState("");
 
   useEffect(() => {
     const detect = () => {
@@ -144,6 +149,11 @@ export default function LockerSubtestFix() {
         return String((q as any).topic || "").toLowerCase().includes(selectedSubbab.toLowerCase());
       }),
     [questions, selected, selectedSubbab],
+  );
+
+  const visibleMaterials = useMemo(
+    () => resources.filter((r) => r.kind === "rodi_material" && (!r.subtest || r.subtest === selected) && (!r.subbab || r.subbab.toLowerCase() === selectedSubbab.toLowerCase()) && (!r.level || r.level === "all" || r.level === level)),
+    [resources, selected, selectedSubbab, level],
   );
 
   const visibleResources = useMemo(
@@ -196,6 +206,17 @@ export default function LockerSubtestFix() {
     } catch (error: any) {
       toast.error(error?.body?.message || error?.message || "Gagal menambah soal.");
     }
+  };
+
+  const addRodiMaterial = async () => {
+    if (!materialTitle.trim() || !materialText.trim()) { toast.error("Judul dan isi materi wajib diisi."); return; }
+    try {
+      await apiPost<Resource>("/wacawaci/resources", { mentor_code: "CECEKOKOMLS", kind: "rodi_material", title: materialTitle.trim(), description: materialText.trim(), url: materialUrl.trim(), is_public: true, level, subtest: selected, subbab: selectedSubbab });
+      const fresh = await apiGet<Resource[]>("/wacawaci/resources").catch(() => []);
+      setResources(mergeResources(Array.isArray(fresh) ? fresh : []));
+      setMaterialTitle(""); setMaterialText(""); setMaterialUrl("");
+      toast.success("Materi RODI berhasil disimpan.");
+    } catch (error: any) { toast.error(error?.body?.message || error?.message || "Gagal menyimpan materi RODI."); }
   };
 
   const uploadWacawaci = async () => {
