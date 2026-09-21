@@ -20,6 +20,7 @@ function readSession(req:any){const raw=String(req.headers?.cookie||""),m=raw.ma
 const subtestMeta=[
  ["pu","Penalaran Umum",30], ["ppu","Pengetahuan & Pemahaman Umum",20], ["pbm","Pemahaman Bacaan & Menulis",20], ["pk","Pengetahuan Kuantitatif",20], ["lit_indo","Literasi Bahasa Indonesia",30], ["lit_inggris","Literasi Bahasa Inggris",20], ["pm","Penalaran Matematika",20],
 ] as const;
+// Wacawaci Drive sync: production reads the 7-locker source from this root folder.
 const WACAWACI_DRIVE_ROOT_ID="1hUF0G01PZkzRcONhLFRAywGi_qD8AUds";
 const DRIVE_SUBTESTS:Array<[string,string[]]>=[
  ["pu",["pu","penalaran umum"]],["ppu",["ppu","pengetahuan & pemahaman umum"]],["pbm",["pbm","pemahaman bacaan"]],["pk",["pk","pengetahuan kuantitatif"]],
