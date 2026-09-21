@@ -20,6 +20,34 @@ function readSession(req:any){const raw=String(req.headers?.cookie||""),m=raw.ma
 const subtestMeta=[
  ["pu","Penalaran Umum",30], ["ppu","Pengetahuan & Pemahaman Umum",20], ["pbm","Pemahaman Bacaan & Menulis",20], ["pk","Pengetahuan Kuantitatif",20], ["lit_indo","Literasi Bahasa Indonesia",30], ["lit_inggris","Literasi Bahasa Inggris",20], ["pm","Penalaran Matematika",20],
 ] as const;
+const WACAWACI_DRIVE_ROOT_ID="1hUF0G01PZkzRcONhLFRAywGi_qD8AUds";
+const DRIVE_SUBTESTS:Array<[string,string[]]>=[
+ ["pu",["pu","penalaran umum"]],["ppu",["ppu","pengetahuan & pemahaman umum"]],["pbm",["pbm","pemahaman bacaan"]],["pk",["pk","pengetahuan kuantitatif"]],
+ ["lit_indo",["literasi bahasa indonesia","literasi indonesia"]],["lit_inggris",["literasi bahasa inggris","literasi inggris"]],["pm",["pm","penalaran matematika"]],
+];
+function driveSubtest(name:string){const n=String(name||"").toLowerCase();for(const [id,aliases] of DRIVE_SUBTESTS)if(aliases.some(a=>n.includes(a)))return id;return "";}
+async function getDriveWacawaci(){
+ const key=String(process.env["GOOGLE_DRIVE_API_KEY"]||"").trim();if(!key)return [];
+ const out:any[]=[];
+ async function walk(parent:string,subtest="",kind=""){
+  const q=encodeURIComponent("'"+parent+"' in parents and trashed = false");
+  const fields=encodeURIComponent("files(id,name,mimeType,webViewLink,webContentLink)");
+  const response=await fetch("https://www.googleapis.com/drive/v3/files?q="+q+"&pageSize=1000&fields="+fields+"&key="+encodeURIComponent(key));
+  if(!response.ok)throw new Error("Drive API "+response.status);
+  const body=await response.json() as any;
+  for(const file of Array.isArray(body.files)?body.files:[]){
+   const nextSubtest=driveSubtest(file.name)||subtest,lower=String(file.name||"").toLowerCase();
+   if(file.mimeType==="application/vnd.google-apps.folder"){
+    const nextKind=lower.includes("video")?"video":lower.includes("modul")||lower.includes("materi")||lower.includes("pdf")?"module":kind;
+    await walk(String(file.id),nextSubtest,nextKind);
+   }else if(nextSubtest){
+    const fileKind=lower.includes("video")||String(file.mimeType||"").startsWith("video/")||kind==="video"?"video":"module";
+    out.push({id:"drive-"+file.id,kind:fileKind,title:String(file.name||"Materi Wacawaci"),description:"Materi Google Drive",url:String(file.webViewLink||file.webContentLink||("https://drive.google.com/file/d/"+file.id+"/view")),is_public:true,created_by:"Google Drive",level:"all",subtest:nextSubtest});
+   }
+  }
+ }
+ await walk(WACAWACI_DRIVE_ROOT_ID);return out;
+}
 const mentorQuestions:MentorQuestion[]=[];
 const mentorTryouts:MentorTryout[]=[];
 function buildMentorTryout(body:any){
@@ -70,7 +98,7 @@ async function persistentContent(req:any,res:any,path:string){
   return {id:String(row.id),title:String(row.title||meta.title||""),description:String(meta.description||row.description||""),youtube_url:String(meta.youtube_url||row.url||""),starts_at:String(meta.starts_at||row.created_at||new Date().toISOString()),recording_url:String(meta.recording_url||meta.youtube_url||row.url||""),level:String(row.level||meta.level||"nguli"),status:String(meta.status||"scheduled")};
  };
  if(path==="/api/wacawaci/resources"){
-  if(req.method==="GET"){if(!supabaseConfigured())return null;try{const rows=await supabaseRequest<any[]>("wacawaci_resources?kind=in.("+wacaKinds+")&select=*&order=created_at.desc");return res.status(200).json(rows.map(decodeWaca));}catch(error){console.error("WACAWACI_SUPABASE_GET_ERROR",error);return res.status(200).json([]);}}
+  if(req.method==="GET"){let stored:any[]=[];try{if(supabaseConfigured()){const rows=await supabaseRequest<any[]>("wacawaci_resources?kind=in.("+wacaKinds+")&select=*&order=created_at.desc");stored=rows.map(decodeWaca);}}catch(error){console.error("WACAWACI_SUPABASE_GET_ERROR",error);}let drive:any[]=[];try{drive=await getDriveWacawaci();}catch(error){console.error("WACAWACI_DRIVE_GET_ERROR",error);}const merged=[...drive,...stored];if(merged.length)return res.status(200).json(merged);if(!supabaseConfigured())return null;return res.status(200).json([]);}
   if(req.method==="DELETE"){if(!validMentorCode(req.query?.mentor_code||body.mentor_code))return res.status(401).json({detail:"Kode mentor tidak cocok."});if(!supabaseConfigured())return res.status(500).json({detail:"Penyimpanan Supabase belum aktif."});const id=String(req.query?.id||body.id||"").trim();await supabaseRequest("wacawaci_resources?id=eq."+encodeURIComponent(id),{method:"DELETE"});return res.status(200).json({ok:true,id});}
   if(req.method==="POST"){
    if(!validMentorCode(body.mentor_code))return res.status(401).json({detail:"Kode mentor tidak cocok."});if(!supabaseConfigured())return res.status(500).json({detail:"Penyimpanan Supabase belum aktif."});
