@@ -2121,7 +2121,7 @@ export default function Home() {
   const [showAllQuestions, setShowAllQuestions] = useState(false);
   const [answers, setAnswers] = useState<Record<string, string>>({});
   const [solutions, setSolutions] = useState<Record<string, boolean>>({});
-  const [resourceKind, setResourceKind] = useState("video");
+  const [resourceKind, setResourceKind] = useState("module");
   const [selectedSession, setSelectedSession] = useState("utbaby-demo-2026");
   const [tryoutAnswers, setTryoutAnswers] = useState<Record<string, number>>(
     {},
