@@ -107,7 +107,18 @@ interface Resource {
   is_public: boolean;
   created_by: string;
   level: string;
+  subtest?: string;
 }
+
+const WACAWACI_SUBTESTS = [
+  ["pu", "Penalaran Umum (PU)"],
+  ["ppu", "Pengetahuan & Pemahaman Umum (PPU)"],
+  ["pbm", "Pemahaman Bacaan & Menulis (PBM)"],
+  ["pk", "Pengetahuan Kuantitatif (PK)"],
+  ["lit_indo", "Literasi Bahasa Indonesia"],
+  ["lit_inggris", "Literasi Bahasa Inggris"],
+  ["pm", "Penalaran Matematika (PM)"],
+] as const;
 interface LiveClass {
   id: string;
   title: string;
@@ -2122,6 +2133,7 @@ export default function Home() {
   const [answers, setAnswers] = useState<Record<string, string>>({});
   const [solutions, setSolutions] = useState<Record<string, boolean>>({});
   const [resourceKind, setResourceKind] = useState("module");
+  const [resourceSubtest, setResourceSubtest] = useState("pu");
   const [selectedSession, setSelectedSession] = useState("utbaby-demo-2026");
   const [tryoutAnswers, setTryoutAnswers] = useState<Record<string, number>>(
     {},
@@ -2336,7 +2348,7 @@ export default function Home() {
         const form = new FormData();
         form.append("file", resourceFile);
         return apiUpload<Resource>(
-          `/wacawaci/upload?mentor_code=${encodeURIComponent(mentorCode)}&kind=${resourceKind}&title=${encodeURIComponent(resourceTitle)}&description=${encodeURIComponent(resourceDescription)}&level=${codeLevel}`,
+          `/wacawaci/upload?mentor_code=${encodeURIComponent(mentorCode)}&kind=${resourceKind}&title=${encodeURIComponent(resourceTitle)}&description=${encodeURIComponent(resourceDescription)}&level=${codeLevel}&subtest=${resourceSubtest}`,
           form,
         );
       }
@@ -2348,6 +2360,7 @@ export default function Home() {
         url: resourceUrl,
         is_public: true,
         level: codeLevel,
+        subtest: resourceSubtest,
       });
     },
     onSuccess: () => {
@@ -2405,6 +2418,11 @@ export default function Home() {
   const openView = (next: View) => {
     setView(next);
     setNotificationsOpen(false);
+    if (next === "wacawaci") {
+      setResourceSubtest("pu");
+      setResourceKind("video");
+      queryClient.invalidateQueries({ queryKey: ["wacawaci", user?.level] });
+    }
     if (next === "rodi" || next === "utbaby") {
       const nextMascot = mascots[Math.floor(Math.random() * mascots.length)];
       setMascot(nextMascot);
@@ -2429,11 +2447,17 @@ export default function Home() {
   const displayedQuestions = showAllQuestions
     ? activeQuestions
     : activeQuestions.slice(0, 6);
-  const filteredResources = (resourcesQuery.data ?? []).filter((item) =>
-    resourceKind === "video"
-      ? item.kind === "video"
-      : item.kind === "module" || item.kind === "pdf" || item.kind === "ringkasan" || item.kind === "cheatsheet",
-  );
+  const filteredResources = (resourcesQuery.data ?? []).filter((item) => {
+    const matchesSubtest = !item.subtest || item.subtest === resourceSubtest;
+    const matchesKind =
+      resourceKind === "video"
+        ? item.kind === "video"
+        : item.kind === "module" ||
+          item.kind === "pdf" ||
+          item.kind === "ringkasan" ||
+          item.kind === "cheatsheet";
+    return matchesSubtest && matchesKind;
+  });
   const activeLive = liveQuery.data?.[0];
   useEffect(() => {
     if (!reviewOpen || !tryoutResult || !tryoutQuery.data) return;
@@ -2781,6 +2805,18 @@ export default function Home() {
           {adminTab === "wacawaci" && (
             <AdminForm title="UPLOAD WACAWACI">
               <select
+                value={resourceSubtest}
+                onChange={(event) => setResourceSubtest(event.target.value)}
+                className="form-select"
+                data-testid="admin-resource-subtest-select"
+              >
+                {WACAWACI_SUBTESTS.map(([id, label]) => (
+                  <option key={id} value={id}>
+                    {label}
+                  </option>
+                ))}
+              </select>
+              <select
                 value={resourceKind}
                 onChange={(event) => setResourceKind(event.target.value)}
                 className="form-select"
@@ -3103,7 +3139,29 @@ export default function Home() {
               title="WACAWACI"
               subtitle={`Loker materi ${levels[safeUser.level].label}`}
             />
-            <div className="mt-6 flex gap-3">
+            <section
+              className="mt-6 grid gap-3 sm:grid-cols-2 lg:grid-cols-4"
+              data-testid="wacawaci-subtest-locker-grid"
+            >
+              {WACAWACI_SUBTESTS.map(([id, label], index) => (
+                <button
+                  key={id}
+                  type="button"
+                  onClick={() => setResourceSubtest(id)}
+                  className={`pixel-card p-4 text-left transition ${resourceSubtest === id ? "bg-yellow-300" : "bg-white"}`}
+                  data-testid={`wacawaci-locker-${id}`}
+                >
+                  <div className="flex items-center justify-between">
+                    <span className="font-mono text-xs font-black text-violet-700">
+                      0{index + 1}
+                    </span>
+                    <span className="text-xs font-black text-violet-950">LOKER</span>
+                  </div>
+                  <p className="mt-3 text-sm font-black text-violet-950">{label}</p>
+                </button>
+              ))}
+            </section>
+            <div className="mt-5 flex gap-3">
               <PixelButton
                 onClick={() => setResourceKind("video")}
                 className={`px-6 py-3 ${resourceKind === "video" ? "bg-pink-300" : "bg-white"}`}
