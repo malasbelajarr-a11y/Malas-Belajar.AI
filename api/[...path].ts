@@ -31,11 +31,14 @@ async function getDriveWacawaci(){
  const out:any[]=[];
  async function walk(parent:string,subtest="",kind=""){
   const q=encodeURIComponent("'"+parent+"' in parents and trashed = false");
-  const fields=encodeURIComponent("files(id,name,mimeType,webViewLink,webContentLink)");
-  const response=await fetch("https://www.googleapis.com/drive/v3/files?q="+q+"&pageSize=1000&fields="+fields+"&key="+encodeURIComponent(key));
-  if(!response.ok)throw new Error("Drive API "+response.status);
-  const body=await response.json() as any;
-  for(const file of Array.isArray(body.files)?body.files:[]){
+  const fields=encodeURIComponent("nextPageToken,files(id,name,mimeType,webViewLink,webContentLink)");
+  let pageToken="";
+  do{
+   const params="q="+q+"&pageSize=1000&fields="+fields+"&includeItemsFromAllDrives=true&supportsAllDrives=true&corpora=allDrives&key="+encodeURIComponent(key)+(pageToken?"&pageToken="+encodeURIComponent(pageToken):"");
+   const response=await fetch("https://www.googleapis.com/drive/v3/files?"+params);
+   if(!response.ok)throw new Error("Drive API "+response.status);
+   const body=await response.json() as any;
+   for(const file of Array.isArray(body.files)?body.files:[]){
    const nextSubtest=driveSubtest(file.name)||subtest,lower=String(file.name||"").toLowerCase();
    if(file.mimeType==="application/vnd.google-apps.folder"){
     const nextKind=lower.includes("video")?"video":lower.includes("modul")||lower.includes("materi")||lower.includes("pdf")?"module":kind;
@@ -45,6 +48,8 @@ async function getDriveWacawaci(){
     out.push({id:"drive-"+file.id,kind:fileKind,title:String(file.name||"Materi Wacawaci"),description:"Materi Google Drive",url:String(file.webViewLink||file.webContentLink||("https://drive.google.com/file/d/"+file.id+"/view")),is_public:true,created_by:"Google Drive",level:"all",subtest:nextSubtest});
    }
   }
+   pageToken=String(body.nextPageToken||"");
+  }while(pageToken);
  }
  await walk(WACAWACI_DRIVE_ROOT_ID);return out;
 }
