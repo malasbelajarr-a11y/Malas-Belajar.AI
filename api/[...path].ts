@@ -70,7 +70,7 @@ async function persistentContent(req:any,res:any,path:string){
   return {id:String(row.id),title:String(row.title||meta.title||""),description:String(meta.description||row.description||""),youtube_url:String(meta.youtube_url||row.url||""),starts_at:String(meta.starts_at||row.created_at||new Date().toISOString()),recording_url:String(meta.recording_url||meta.youtube_url||row.url||""),level:String(row.level||meta.level||"nguli"),status:String(meta.status||"scheduled")};
  };
  if(path==="/api/wacawaci/resources"){
-  if(req.method==="GET"){if(!supabaseConfigured())return null;const rows=await supabaseRequest<any[]>("wacawaci_resources?kind=in.("+wacaKinds+")&select=*&order=created_at.desc");return res.status(200).json(rows.map(decodeWaca));}
+  if(req.method==="GET"){if(!supabaseConfigured())return null;try{const rows=await supabaseRequest<any[]>("wacawaci_resources?kind=in.("+wacaKinds+")&select=*&order=created_at.desc");return res.status(200).json(rows.map(decodeWaca));}catch(error){console.error("WACAWACI_SUPABASE_GET_ERROR",error);return res.status(200).json([]);}}
   if(req.method==="DELETE"){if(!validMentorCode(req.query?.mentor_code||body.mentor_code))return res.status(401).json({detail:"Kode mentor tidak cocok."});if(!supabaseConfigured())return res.status(500).json({detail:"Penyimpanan Supabase belum aktif."});const id=String(req.query?.id||body.id||"").trim();await supabaseRequest("wacawaci_resources?id=eq."+encodeURIComponent(id),{method:"DELETE"});return res.status(200).json({ok:true,id});}
   if(req.method==="POST"){
    if(!validMentorCode(body.mentor_code))return res.status(401).json({detail:"Kode mentor tidak cocok."});if(!supabaseConfigured())return res.status(500).json({detail:"Penyimpanan Supabase belum aktif."});
