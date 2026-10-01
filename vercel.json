@@ -31,10 +31,6 @@
       "destination": "/api/mentor-actions?action=live"
     },
     {
-      "source": "/api/wacawaci/resources",
-      "destination": "/api/wacawaci-resources"
-    },
-    {
       "source": "/((?!api/).*)",
       "destination": "/index.html"
     }
