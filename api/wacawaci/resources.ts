@@ -12,7 +12,6 @@ const SUBTESTS: Record<string, string[]> = {
   lit_inggris: ["lit inggris", "literasi bahasa inggris", "literasi inggris"],
   pm: ["pm", "penalaran matematika"],
 };
-
 const clean = (v: unknown) => String(v ?? "").toLowerCase().replace(/[^a-z0-9]+/g, " ").trim();
 
 function detectSubtest(name: string, inherited = "") {
@@ -31,7 +30,7 @@ async function driveChildren(parent: string) {
   const all: any[] = [];
   let token = "";
   do {
-    const url = `https://www.googleapis.com/drive/v3/files?q=${q}&pageSize=1000&fields=${fields}&includeItemsFromAllDrives=true&supportsAllDrives=true&key=${encodeURIComponent(key)}${token ? `&pageToken=${encodeURIComponent(token)}` : ""}`;
+    const url = `https://www.googleapis.com/drive/v3/files?q=${q}&pageSize=1000&fields=${fields}&includeItemsFromAllDrives=true&supportsAllDrives=true&corpora=allDrives&key=${encodeURIComponent(key)}${token ? `&pageToken=${encodeURIComponent(token)}` : ""}`;
     const r = await fetch(url);
     if (!r.ok) throw new Error(`Google Drive API ${r.status}`);
     const data = await r.json() as any;
@@ -86,16 +85,16 @@ export default async function handler(req: any, res: any) {
   res.setHeader("Access-Control-Allow-Origin", "*");
   res.setHeader("Access-Control-Allow-Methods", "GET,POST,DELETE,OPTIONS");
   res.setHeader("Access-Control-Allow-Headers", "Content-Type, Authorization");
+  res.setHeader("X-Wacawaci-Route", "student-exact-v2");
   if (req.method === "OPTIONS") return res.status(204).end();
 
-  // STUDENT: this endpoint must ALWAYS return an array, even if one backend source fails.
   if (req.method === "GET") {
     const result: any[] = [];
 
-    if (supabaseConfigured()) {
-      try {
+    try {
+      if (supabaseConfigured()) {
         const rows = await supabaseRequest<any[]>(
-          "wacawaci_resources?select=*&order=created_at.desc"
+          "wacawaci_resources?select=id,kind,title,description,url,is_public,created_by,level,subtest,created_at&order=created_at.desc"
         );
         for (const row of Array.isArray(rows) ? rows : []) {
           let meta: any = {};
@@ -110,17 +109,17 @@ export default async function handler(req: any, res: any) {
             created_by: String(row.created_by || ""),
             level: String(row.level || "nguli"),
             subtest: String(row.subtest || meta.subtest || ""),
-            subbab: String(row.subbab || meta.subbab || ""),
             created_at: row.created_at,
           });
         }
-      } catch (e) {
-        console.error("WACAWACI_SUPABASE_GET", e);
       }
+    } catch (e) {
+      console.error("WACAWACI_SUPABASE_GET", e);
     }
 
     try {
-      result.unshift(...await getDriveResources());
+      const drive = await getDriveResources();
+      result.unshift(...drive);
     } catch (e) {
       console.error("WACAWACI_DRIVE_GET", e);
     }
@@ -148,18 +147,35 @@ export default async function handler(req: any, res: any) {
     const subtest = String(body.subtest || "pu");
     const subbab = String(body.subbab || "").trim();
     const level = String(body.level || "nguli");
-    if (!title || !url) return res.status(400).json({ detail: "Judul dan link materi wajib diisi." });
+    if (!["video", "module", "pdf", "ringkasan", "cheatsheet", "rodi_material"].includes(kind)) {
+      return res.status(400).json({ detail: "Jenis materi Wacawaci tidak valid." });
+    }
+    if (!title || (!url && kind !== "rodi_material")) return res.status(400).json({ detail: "Judul dan link materi wajib diisi." });
     if (!Object.keys(SUBTESTS).includes(subtest)) return res.status(400).json({ detail: "Subtes Wacawaci tidak valid." });
+
     const resource = {
       id: `waca-${Date.now()}-${crypto.randomBytes(3).toString("hex")}`,
       kind, title, description, url, is_public: true,
-      created_by: "Mentor Malas Belajar", level, subtest, subbab,
+      created_by: "Mentor Malas Belajar",
+      level: ["nguli", "mandor", "supervisor"].includes(level) ? level : "nguli",
+      subtest, subbab,
       created_at: new Date().toISOString(),
     };
+
     await supabaseRequest("wacawaci_resources", {
       method: "POST",
       headers: { Prefer: "return=minimal" },
-      body: JSON.stringify({ ...resource, description: JSON.stringify({ __mls_wacawaci: true, description, subtest, subbab }) }),
+      body: JSON.stringify({
+        id: resource.id,
+        kind: resource.kind,
+        title: resource.title,
+        description: JSON.stringify({ __mls_wacawaci: true, description, subtest, subbab }),
+        url: resource.url,
+        is_public: true,
+        created_by: resource.created_by,
+        level: resource.level,
+        subtest: resource.subtest,
+      }),
     });
     return res.status(201).json(resource);
   }
