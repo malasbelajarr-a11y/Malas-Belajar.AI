@@ -2,13 +2,17 @@ import { supabaseConfigured, supabaseRequest } from "../_lib/supabase";
 
 const DRIVE_ROOT = "1hUF0G01PZkzRcONhLFRAywGi_qD8AUds";
 
-// Keep a small fallback so Wacawaci can render even if Vercel's
-// Supabase environment variables are temporarily missing.
+// Fallback keeps the student locker usable even when Vercel's Supabase
+// environment is unavailable. Normal operation still uses Supabase/Drive.
 const FALLBACK = [
-  { id: "seed-waca-1", kind: "module", title: "Kitab Rumus Cepat Kuantitatif & Penalaran Matematika UTBK 2026", description: "Rangkuman praktis formula esensial untuk latihan UTBK.", url: "https://example.com/kitab-pk-mls.pdf", is_public: true, created_by: "Mentor Koko", level: "nguli", subtest: "pk" },
-  { id: "seed-waca-2", kind: "video", title: "Masterclass Jebakan PPU & PBM", description: "Strategi membedah kalimat dan bacaan secara cepat.", url: "https://www.youtube.com/watch?v=dQw4w9WgXcQ", is_public: true, created_by: "Mentor Cece", level: "mandor", subtest: "ppu" },
-  { id: "seed-waca-3", kind: "module", title: "Peta Konsep EYD V", description: "Aturan penting EYD V untuk latihan PBM.", url: "https://example.com/eyd-v-cheat.pdf", is_public: true, created_by: "Mentor Cece", level: "nguli", subtest: "lit_indo" },
-  { id: "seed-waca-4", kind: "module", title: "IRT Decoded", description: "Ringkasan strategi memahami kesukaran dan daya pembeda butir.", url: "https://example.com/irt-decoded.pdf", is_public: true, created_by: "Tim Riset MLS", level: "supervisor", subtest: "pm" },
+  { id: "fallback-pu", kind: "module", title: "Silogisme & Penalaran Umum — Ringkasan", description: "Ringkasan cepat materi PU untuk latihan siswa.", url: "https://example.com/wacawaci-pu.pdf", is_public: true, created_by: "Malas Belajar", level: "nguli", subtest: "pu" },
+  { id: "fallback-ppu", kind: "module", title: "Pengetahuan & Pemahaman Umum — Ringkasan", description: "Ringkasan cepat materi PPU.", url: "https://example.com/wacawaci-ppu.pdf", is_public: true, created_by: "Malas Belajar", level: "nguli", subtest: "ppu" },
+  { id: "fallback-pbm", kind: "module", title: "Pemahaman Bacaan & Menulis — Ringkasan", description: "Ringkasan cepat materi PBM.", url: "https://example.com/wacawaci-pbm.pdf", is_public: true, created_by: "Malas Belajar", level: "nguli", subtest: "pbm" },
+  { id: "fallback-pk", kind: "module", title: "Kitab Rumus Cepat Kuantitatif & Penalaran Matematika UTBK 2026", description: "Rangkuman praktis formula esensial untuk latihan UTBK.", url: "https://example.com/kitab-pk-mls.pdf", is_public: true, created_by: "Mentor Koko", level: "nguli", subtest: "pk" },
+  { id: "fallback-lit-indo", kind: "module", title: "Peta Konsep EYD V", description: "Aturan penting EYD V untuk latihan Literasi Bahasa Indonesia.", url: "https://example.com/eyd-v-cheat.pdf", is_public: true, created_by: "Mentor Cece", level: "nguli", subtest: "lit_indo" },
+  { id: "fallback-lit-inggris", kind: "module", title: "Literasi Bahasa Inggris — Ringkasan", description: "Ringkasan strategi membaca cepat dan menemukan kesimpulan.", url: "https://example.com/wacawaci-lit-inggris.pdf", is_public: true, created_by: "Malas Belajar", level: "nguli", subtest: "lit_inggris" },
+  { id: "fallback-pm", kind: "module", title: "IRT Decoded", description: "Ringkasan strategi memahami kesukaran dan daya pembeda butir.", url: "https://example.com/irt-decoded.pdf", is_public: true, created_by: "Tim Riset MLS", level: "supervisor", subtest: "pm" },
+  { id: "fallback-video", kind: "video", title: "Masterclass Jebakan PPU & PBM", description: "Strategi membedah kalimat dan bacaan secara cepat.", url: "https://www.youtube.com/watch?v=dQw4w9WgXcQ", is_public: true, created_by: "Mentor Cece", level: "mandor", subtest: "ppu" },
 ];
 
 function clean(row: any) {
@@ -28,13 +32,11 @@ function clean(row: any) {
 
 async function getSupabase() {
   if (!supabaseConfigured()) return [];
-  // IMPORTANT: wacawaci_resources has no "subbab" column.
+  // wacawaci_resources has no "subbab" column; do not request it.
   const rows = await supabaseRequest<any[]>(
     "wacawaci_resources?select=id,kind,title,description,url,is_public,created_by,level,subtest,created_at&order=created_at.desc"
   );
-  return (Array.isArray(rows) ? rows : [])
-    .map(clean)
-    .filter((item) => item.is_public);
+  return (Array.isArray(rows) ? rows : []).map(clean).filter((item) => item.is_public);
 }
 
 function normalize(value: unknown) {
@@ -52,9 +54,7 @@ function detectSubtest(value: unknown) {
     ["lit_inggris", ["literasi bahasa inggris", "literasi inggris"]],
     ["pm", ["pm", "penalaran matematika"]],
   ];
-  for (const [id, names] of aliases) {
-    if (names.some((name) => n.includes(normalize(name)))) return id;
-  }
+  for (const [id, names] of aliases) if (names.some((name) => n.includes(normalize(name)))) return id;
   return "";
 }
 
@@ -114,6 +114,5 @@ export default async function handler(req: any, res: any) {
   try { stored = await getSupabase(); } catch (error) { console.error("WACAWACI_SUPABASE_ERROR", error); }
   try { drive = await getDrive(); } catch (error) { console.error("WACAWACI_DRIVE_ERROR", error); }
 
-  const dbItems = stored.length ? stored : FALLBACK;
-  return res.status(200).json([...drive, ...dbItems]);
+  return res.status(200).json([...drive, ...(stored.length ? stored : FALLBACK)]);
 }
