@@ -2192,7 +2192,7 @@ export default function Home() {
   });
   const resourcesQuery = useQuery({
     queryKey: ["wacawaci", user?.level],
-    queryFn: () => apiGet<Resource[]>("/wacawaci/resources"),
+    queryFn: () => apiGet<Resource[]>("/wacawaci-student"),
     enabled: Boolean(user && view === "wacawaci"),
     retry: 2,
     staleTime: 0,
