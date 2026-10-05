@@ -12,8 +12,10 @@ type Student = { id: string; name: string; email: string; level: Level; active: 
 type AccessCode = { id: string; code: string; level: Level; used: boolean; used_by: string };
 type LeaderboardEntry = { rank: number; participant: string; score: number; correct: number; total: number; submitted_at: string };
 type LiveClass = { id: string; title: string; description: string; youtube_url: string; starts_at: string; level: string; status: string };
+type MentorQuestion = { id: string; chapter?: string; chapter_label: string; topic: string; prompt: string; options: string[]; answer: string; correct_option: number | null; level: string; difficulty?: string };
+type WacawaciResource = { id: string; kind: string; title: string; description: string; url: string; level: string; subtest: string; created_by: string };
 
-const tabs = ["overview", "students", "ranking", "codes", "live"] as const;
+const tabs = ["overview", "students", "ranking", "codes", "live", "content"] as const;
 type Tab = (typeof tabs)[number];
 const levelLabel: Record<Level, string> = { nguli: "Nguli ⚒️", mandor: "Mandor ⛑️", supervisor: "Supervisor 🎖️" };
 
@@ -35,6 +37,11 @@ export default function MentorDashboardPlus() {
   const [ranking, setRanking] = useState<LeaderboardEntry[]>([]);
   const [lives, setLives] = useState<LiveClass[]>([]);
   const [codes, setCodes] = useState<AccessCode[]>([]);
+  const [mentorQuestions, setMentorQuestions] = useState<MentorQuestion[]>([]);
+  const [wacawaci, setWacawaci] = useState<WacawaciResource[]>([]);
+  const [contentLevel, setContentLevel] = useState<Level>("nguli");
+  const [contentSubtest, setContentSubtest] = useState("pu");
+  const [contentMode, setContentMode] = useState<"questions" | "wacawaci">("questions");
   const [loading, setLoading] = useState(false);
   const [level, setLevel] = useState<Level>("nguli");
   const [count, setCount] = useState("10");
@@ -51,13 +58,17 @@ export default function MentorDashboardPlus() {
       apiGet<LeaderboardEntry[]>("/utbaby/leaderboard"),
       apiGet<LiveClass[]>("/live-classes"),
       jsonRequest<AccessCode[]>(`/api/admin/access-codes?mentor_code=${encodeURIComponent(code)}`),
+      jsonRequest<MentorQuestion[]>(`/api/mentor-content-v2?action=student-questions&level=${contentLevel}`),
+      jsonRequest<WacawaciResource[]>(`/api/mentor-content-v2?action=wacawaci&level=${contentLevel}`),
     ]);
-    const [studentResult, rankingResult, liveResult, codeResult] = results;
+    const [studentResult, rankingResult, liveResult, codeResult, questionResult, wacawaciResult] = results;
     if (studentResult.status === "fulfilled") setStudents(Array.isArray(studentResult.value) ? studentResult.value : []);
     else toast.error(studentResult.reason?.message || "Panel siswa gagal dimuat.");
     if (rankingResult.status === "fulfilled") setRanking(Array.isArray(rankingResult.value) ? rankingResult.value : []);
     if (liveResult.status === "fulfilled") setLives(Array.isArray(liveResult.value) ? liveResult.value : []);
     if (codeResult.status === "fulfilled") setCodes(Array.isArray(codeResult.value) ? codeResult.value : []);
+    if (questionResult.status === "fulfilled") setMentorQuestions(Array.isArray(questionResult.value) ? questionResult.value : []);
+    if (wacawaciResult.status === "fulfilled") setWacawaci(Array.isArray(wacawaciResult.value) ? wacawaciResult.value : []);
     setLoading(false);
   };
 
@@ -80,7 +91,7 @@ export default function MentorDashboardPlus() {
     return () => observer.disconnect();
   }, []);
 
-  useEffect(() => { if (host) void load(); }, [host]);
+  useEffect(() => { if (host) void load(); }, [host, contentLevel]);
 
   const generateCodes = async () => {
     try {
@@ -129,11 +140,21 @@ export default function MentorDashboardPlus() {
         {[["TOTAL SISWA", students.length, "text-white"], ["AKTIF", activeStudents, "text-emerald-300"], ["NGULI", byLevel("nguli"), "text-yellow-300"], ["MANDOR", byLevel("mandor"), "text-pink-300"], ["SUPERVISOR", byLevel("supervisor"), "text-violet-200"]].map(([label, value, tone]) => <div key={String(label)} className="rounded-xl border-2 border-violet-700 bg-violet-900 p-3"><p className="text-[10px] font-bold text-violet-300">{label}</p><p className={`mt-1 text-2xl font-black ${tone}`}>{value}</p></div>)}
       </div>
 
-      <div className="mt-5 flex flex-wrap gap-2">{tabs.map((item) => <Button key={item} onClick={() => setTab(item)} variant={tab === item ? "default" : "outline"} className={tab === item ? "bg-yellow-300 text-violet-950" : "border-violet-700 bg-violet-900 text-white"}>{item === "overview" ? "Ringkasan" : item === "students" ? "Panel Siswa" : item === "ranking" ? "Ranking + IRT" : item === "codes" ? "Kode Akses" : "Live Class"}</Button>)}</div>
+      <div className="mt-5 flex flex-wrap gap-2">{tabs.map((item) => <Button key={item} onClick={() => setTab(item)} variant={tab === item ? "default" : "outline"} className={tab === item ? "bg-yellow-300 text-violet-950" : "border-violet-700 bg-violet-900 text-white"}>{item === "overview" ? "Ringkasan" : item === "students" ? "Panel Siswa" : item === "ranking" ? "Ranking + IRT" : item === "codes" ? "Kode Akses" : item === "live" ? "Live Class" : "Soal + Wacawaci"}</Button>)}</div>
 
       {tab === "overview" && <div className="mt-5 grid gap-4 lg:grid-cols-2">
         <div className="rounded-xl border-2 border-violet-700 bg-white p-4 text-violet-950"><h3 className="font-black">KODE SISWA</h3><p className="mt-1 text-xs text-slate-600">Generator kode siswa dipusatkan di panel <b>KODE SISWA</b> di atas supaya tidak ada dua generator yang berbeda.</p><p className="mt-3 text-xs font-bold text-violet-700">Kode yang sudah dibuat tetap dibaca dari penyimpanan yang sama.</p></div>
         <div className="rounded-xl border-2 border-violet-700 bg-white p-4 text-violet-950"><h3 className="font-black">RINGKASAN RANKING</h3><p className="mt-1 text-xs text-slate-600">Skor hasil UTBABY + pembobotan tingkat kesukaran dan daya pembeda butir.</p><div className="mt-3 space-y-2">{ranking.slice(0, 5).map((entry) => <div key={`${entry.participant}-${entry.rank}`} className="flex items-center justify-between rounded-lg border-2 border-violet-100 p-2"><span className="text-xs font-bold">#{entry.rank} {entry.participant}</span><strong>{entry.score}</strong></div>)}{!ranking.length && <p className="py-6 text-center text-xs text-slate-500">Belum ada hasil.</p>}</div></div>
+      </div>}
+
+      {tab === "content" && <div className="mt-5 rounded-xl border-2 border-violet-700 bg-white p-4 text-violet-950">
+        <div className="flex flex-wrap items-center justify-between gap-3"><div><h3 className="font-black">BANK KONTEN PER LEVEL</h3><p className="mt-1 text-xs text-slate-600">Soal mentor dan Wacawaci dipisah per level. Wacawaci otomatis dibaca dari Google Drive.</p></div><span className="rounded-lg border-2 border-violet-200 bg-yellow-100 px-3 py-2 text-xs font-black">DRIVE · NGULI / MANDOR / SUPERVISOR</span></div>
+        <div className="mt-4 grid gap-3 md:grid-cols-3">
+          <select value={contentLevel} onChange={(e) => setContentLevel(e.target.value as Level)} className="rounded-md border-2 border-violet-950 bg-white px-3 py-2 font-bold"><option value="nguli">Nguli ⚒️</option><option value="mandor">Mandor ⛑️</option><option value="supervisor">Supervisor 🎖️</option></select>
+          <select value={contentSubtest} onChange={(e) => setContentSubtest(e.target.value)} className="rounded-md border-2 border-violet-950 bg-white px-3 py-2 font-bold"><option value="pu">PU</option><option value="ppu">PPU</option><option value="pbm">PBM</option><option value="pk">PK</option><option value="lit_indo">Literasi Indonesia</option><option value="lit_inggris">Literasi Inggris</option><option value="pm">PM</option></select>
+          <div className="flex gap-2"><Button onClick={() => setContentMode("questions")} className={contentMode === "questions" ? "bg-pink-300 text-violet-950" : "bg-violet-100 text-violet-950"}>SOAL ({mentorQuestions.length})</Button><Button onClick={() => setContentMode("wacawaci")} className={contentMode === "wacawaci" ? "bg-yellow-300 text-violet-950" : "bg-violet-100 text-violet-950"}>WACAWACI ({wacawaci.length})</Button></div>
+        </div>
+        {contentMode === "questions" ? <div className="mt-4 space-y-3">{mentorQuestions.filter((q) => !contentSubtest || q.chapter === contentSubtest).map((q, i) => <article key={q.id} className="rounded-xl border-2 border-violet-200 bg-violet-50 p-4"><div className="flex flex-wrap items-center justify-between gap-2"><b>SOAL {i + 1} · {q.chapter_label}</b><span className="text-[10px] font-black uppercase">{q.level} · {q.difficulty || "Mentor"}</span></div><p className="mt-2 font-black leading-relaxed">{q.prompt}</p><div className="mt-3 grid gap-2 sm:grid-cols-2">{(q.options || []).map((o, j) => <div key={j} className={j === q.correct_option ? "rounded-lg border-2 border-emerald-500 bg-emerald-50 p-2 text-sm font-bold" : "rounded-lg border-2 border-violet-100 bg-white p-2 text-sm"}>{String.fromCharCode(65 + j)}. {o}</div>)}</div><p className="mt-2 text-xs text-emerald-700"><b>Kunci:</b> {q.correct_option == null ? "—" : String.fromCharCode(65 + q.correct_option)}</p></article>)}{!mentorQuestions.filter((q) => !contentSubtest || q.chapter === contentSubtest).length && <p className="py-10 text-center text-sm text-slate-500">Belum ada soal mentor untuk {contentLevel} · {contentSubtest.toUpperCase()}.</p>}</div> : <div className="mt-4 grid gap-3 sm:grid-cols-2 lg:grid-cols-3">{wacawaci.filter((x) => !contentSubtest || x.subtest === contentSubtest).map((x) => <article key={x.id} className="rounded-xl border-2 border-violet-200 bg-white p-4"><div className="flex items-center justify-between gap-2"><span className="rounded bg-violet-100 px-2 py-1 text-[10px] font-black">{x.kind}</span><span className="text-[10px] font-black uppercase">{x.level}</span></div><h4 className="mt-3 font-black">{x.title}</h4><p className="mt-1 text-xs text-slate-500">{x.subtest} · {x.created_by}</p><a href={x.url} target="_blank" rel="noreferrer" className="mt-3 inline-block text-xs font-black text-pink-600 underline">BUKA MATERI →</a></article>)}{!wacawaci.filter((x) => !contentSubtest || x.subtest === contentSubtest).length && <p className="col-span-full py-10 text-center text-sm text-slate-500">Belum ada Wacawaci untuk {contentLevel} · {contentSubtest.toUpperCase()}.</p>}</div>}
       </div>}
 
       {tab === "students" && <div className="mt-5 overflow-x-auto rounded-xl border-2 border-violet-700 bg-white"><table className="w-full text-left text-sm text-violet-950"><thead><tr className="border-b-2 border-violet-200 bg-violet-50"><th className="p-3">#</th><th className="p-3">Nama</th><th className="p-3">Email</th><th className="p-3">Level</th><th className="p-3">Status</th><th className="p-3">Aksi</th></tr></thead><tbody>{students.map((student, index) => <tr key={student.id} className="border-b border-violet-100"><td className="p-3">{index + 1}</td><td className="p-3 font-black">{student.name}</td><td className="p-3">{student.email}</td><td className="p-3"><Badge>{levelLabel[student.level]}</Badge></td><td className="p-3">{student.active ? "Aktif" : "Nonaktif"}</td><td className="p-3"><Button size="sm" variant={student.active ? "destructive" : "outline"} onClick={() => void toggleStudent(student)}>{student.active ? "Nonaktifkan" : "Aktifkan"}</Button></td></tr>)}{!students.length && <tr><td colSpan={6} className="p-8 text-center text-slate-500">Belum ada data siswa.</td></tr>}</tbody></table></div>}
