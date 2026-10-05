@@ -1,52 +1,8 @@
-// Completely isolated student Wacawaci endpoint.
-// It intentionally does not depend on the old Wacawaci router.
-const fallback = [
-  { id: "waca-pu", kind: "module", title: "Penalaran Umum (PU) — Materi", description: "Materi Wacawaci PU.", url: "https://example.com/wacawaci-pu", is_public: true, created_by: "Malas Belajar", level: "all", subtest: "pu" },
-  { id: "waca-ppu", kind: "module", title: "Pengetahuan & Pemahaman Umum (PPU) — Materi", description: "Materi Wacawaci PPU.", url: "https://example.com/wacawaci-ppu", is_public: true, created_by: "Malas Belajar", level: "all", subtest: "ppu" },
-  { id: "waca-pbm", kind: "module", title: "Pemahaman Bacaan & Menulis (PBM) — Materi", description: "Materi Wacawaci PBM.", url: "https://example.com/wacawaci-pbm", is_public: true, created_by: "Malas Belajar", level: "all", subtest: "pbm" },
-  { id: "waca-pk", kind: "module", title: "Pengetahuan Kuantitatif (PK) — Materi", description: "Materi Wacawaci PK.", url: "https://example.com/wacawaci-pk", is_public: true, created_by: "Malas Belajar", level: "all", subtest: "pk" },
-  { id: "waca-lit-indo", kind: "module", title: "Literasi Bahasa Indonesia — Materi", description: "Materi Wacawaci Literasi Bahasa Indonesia.", url: "https://example.com/wacawaci-lit-indo", is_public: true, created_by: "Malas Belajar", level: "all", subtest: "lit_indo" },
-  { id: "waca-lit-inggris", kind: "module", title: "Literasi Bahasa Inggris — Materi", description: "Materi Wacawaci Literasi Bahasa Inggris.", url: "https://example.com/wacawaci-lit-inggris", is_public: true, created_by: "Malas Belajar", level: "all", subtest: "lit_inggris" },
-  { id: "waca-pm", kind: "module", title: "Penalaran Matematika (PM) — Materi", description: "Materi Wacawaci PM.", url: "https://example.com/wacawaci-pm", is_public: true, created_by: "Malas Belajar", level: "all", subtest: "pm" },
-];
-
-function clean(row) {
-  return {
-    id: String(row?.id ?? ""),
-    kind: String(row?.kind ?? "module"),
-    title: String(row?.title ?? "Materi Wacawaci"),
-    description: String(row?.description ?? ""),
-    url: String(row?.url ?? ""),
-    is_public: row?.is_public !== false,
-    created_by: String(row?.created_by ?? ""),
-    level: String(row?.level ?? "all"),
-    subtest: String(row?.subtest ?? ""),
-  };
-}
-
-export default async function handler(req, res) {
-  res.setHeader("Cache-Control", "no-store, max-age=0");
-  if (req.method !== "GET") return res.status(405).json({ detail: "Method not allowed" });
-
-  const supabaseUrl = String(process.env.SUPABASE_URL || "").replace(/\/$/, "");
-  const serviceKey = String(process.env.SUPABASE_SERVICE_ROLE_KEY || "");
-
-  if (supabaseUrl && serviceKey) {
-    try {
-      const response = await fetch(
-        supabaseUrl + "/rest/v1/wacawaci_resources?select=id,kind,title,description,url,is_public,created_by,level,subtest,created_at&is_public=eq.true&order=created_at.desc",
-        { headers: { apikey: serviceKey, Authorization: "Bearer " + serviceKey } }
-      );
-      if (response.ok) {
-        const rows = await response.json();
-        if (Array.isArray(rows) && rows.length) {
-          return res.status(200).json(rows.map(clean));
-        }
-      }
-    } catch (error) {
-      console.error("ISOLATED_WACAWACI_SUPABASE_ERROR", error);
-    }
-  }
-
-  return res.status(200).json(fallback);
-}
+const ROOT="1hUF0G01PZkzRcONhLFRAywGi_qD8AUds";
+const ALIASES=[["pu",["pu","penalaran umum"]],["ppu",["ppu","pengetahuan pemahaman umum","pengetahuan & pemahaman umum"]],["pbm",["pbm","pemahaman bacaan","pemahaman bacaan & menulis"]],["pk",["pk","pengetahuan kuantitatif"]],["lit_indo",["literasi bahasa indonesia","literasi indonesia"]],["lit_inggris",["literasi bahasa inggris","literasi inggris"]],["pm",["pm","penalaran matematika"]]];
+const norm=v=>String(v||"").toLowerCase().replace(/[^a-z0-9]+/g," ").trim();
+function sub(v){const n=norm(v);for(const [id,a] of ALIASES)if(a.some(x=>n===norm(x)||n.includes(norm(x))||n.split(" ").includes(norm(x))))return id;return""}
+function clean(r){let d=String(r?.description||""),s=String(r?.subtest||"");try{const m=JSON.parse(d);if(m?.__mls_wacawaci){d=String(m.description||"");s=String(m.subtest||s)}}catch{}return{id:String(r?.id||""),kind:String(r?.kind||"module"),title:String(r?.title||"Materi Wacawaci"),description:d,url:String(r?.url||""),is_public:r?.is_public!==false,created_by:String(r?.created_by||""),level:String(r?.level||"all"),subtest:s,created_at:r?.created_at}}
+async function db(){const u=String(process.env.SUPABASE_URL||"").replace(/\/$/,""),k=String(process.env.SUPABASE_SERVICE_ROLE_KEY||"");if(!u||!k)return[];const r=await fetch(u+"/rest/v1/wacawaci_resources?kind=in.(video,module,pdf,ringkasan,cheatsheet)&is_public=eq.true&select=*&order=created_at.desc",{headers:{apikey:k,Authorization:"Bearer "+k}});if(!r.ok)throw Error("Supabase "+r.status);const rows=await r.json();return Array.isArray(rows)?rows.map(clean):[]}
+async function drive(){const key=String(process.env.GOOGLE_DRIVE_API_KEY||"").trim();if(!key)return[];const out=[],seen=new Set();async function walk(p,inherit="",kind=""){if(seen.has(p))return;seen.add(p);let token="";do{const q=encodeURIComponent("'"+p+"' in parents and trashed = false"),f=encodeURIComponent("nextPageToken,files(id,name,mimeType,webViewLink,webContentLink,createdTime)"),u="https://www.googleapis.com/drive/v3/files?q="+q+"&pageSize=1000&fields="+f+"&includeItemsFromAllDrives=true&supportsAllDrives=true&corpora=allDrives&key="+encodeURIComponent(key)+(token?"&pageToken="+encodeURIComponent(token):""),r=await fetch(u),x=await r.json().catch(()=>({}));if(!r.ok)throw Error(String(x?.error?.message||"Drive "+r.status));for(const file of Array.isArray(x.files)?x.files:[]){const n=String(file.name||""),m=String(file.mimeType||""),s=sub(n)||inherit;if(m==="application/vnd.google-apps.folder")await walk(String(file.id),s,norm(n).includes("video")?"video":kind);else if(s)out.push({id:"drive-"+file.id,kind:m.startsWith("video/")||kind==="video"?"video":"module",title:n||"Materi Wacawaci",description:"Materi Wacawaci dari Google Drive",url:String(file.webViewLink||file.webContentLink||"https://drive.google.com/file/d/"+file.id+"/view"),is_public:true,created_by:"Google Drive",level:"all",subtest:s,created_at:file.createdTime})}token=String(x.nextPageToken||"")}while(token)}await walk(ROOT);return out}
+export default async function handler(req,res){res.setHeader("Cache-Control","no-store,max-age=0");if(req.method!=="GET")return res.status(405).json({detail:"Method not allowed"});let a=[],d=[];try{a=await db()}catch(e){console.error("WACA_DB",e)}try{d=await drive()}catch(e){console.error("WACA_DRIVE",e)}const m=new Map();[...d,...a].filter(x=>x.subtest).forEach(x=>m.set(x.id,x));return res.status(200).json([...m.values()])}
