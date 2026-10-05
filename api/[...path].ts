@@ -20,49 +20,6 @@ function readSession(req:any){const raw=String(req.headers?.cookie||""),m=raw.ma
 const subtestMeta=[
  ["pu","Penalaran Umum",30], ["ppu","Pengetahuan & Pemahaman Umum",20], ["pbm","Pemahaman Bacaan & Menulis",20], ["pk","Pengetahuan Kuantitatif",20], ["lit_indo","Literasi Bahasa Indonesia",30], ["lit_inggris","Literasi Bahasa Inggris",20], ["pm","Penalaran Matematika",20],
 ] as const;
-// Wacawaci Drive sync: production reads the 7-locker source from this root folder.
-const WACAWACI_DRIVE_ROOT_ID="1hUF0G01PZkzRcONhLFRAywGi_qD8AUds";
-const DRIVE_SUBTESTS:Array<[string,string[]]>=[
- ["pu",["pu","penalaran umum"]],["ppu",["ppu","pengetahuan & pemahaman umum"]],["pbm",["pbm","pemahaman bacaan"]],["pk",["pk","pengetahuan kuantitatif"]],
- ["lit_indo",["literasi bahasa indonesia","literasi indonesia"]],["lit_inggris",["literasi bahasa inggris","literasi inggris"]],["pm",["pm","penalaran matematika"]],
-];
-function driveSubtest(name:string){
- const normalized=String(name||"").toLowerCase().replace(/[^a-z0-9]+/g," ").trim();
- for(const [id,aliases] of DRIVE_SUBTESTS){
-  if(aliases.some(alias=>{
-   const a=alias.toLowerCase().replace(/[^a-z0-9]+/g," ").trim();
-   return a.includes(" ") ? normalized.includes(a) : normalized.split(" ").includes(a);
-  }))return id;
- }
- return "";
-}
-async function getDriveWacawaci(){
- const key=String(process.env["GOOGLE_DRIVE_API_KEY"]||"").trim();if(!key)return [];
- const out:any[]=[];
- async function walk(parent:string,subtest="",kind=""){
-  const q=encodeURIComponent("'"+parent+"' in parents and trashed = false");
-  const fields=encodeURIComponent("nextPageToken,files(id,name,mimeType,webViewLink,webContentLink)");
-  let pageToken="";
-  do{
-   const params="q="+q+"&pageSize=1000&fields="+fields+"&includeItemsFromAllDrives=true&supportsAllDrives=true&corpora=allDrives&key="+encodeURIComponent(key)+(pageToken?"&pageToken="+encodeURIComponent(pageToken):"");
-   const response=await fetch("https://www.googleapis.com/drive/v3/files?"+params);
-   if(!response.ok)throw new Error("Drive API "+response.status);
-   const body=await response.json() as any;
-   for(const file of Array.isArray(body.files)?body.files:[]){
-   const nextSubtest=driveSubtest(file.name)||subtest,lower=String(file.name||"").toLowerCase();
-   if(file.mimeType==="application/vnd.google-apps.folder"){
-    const nextKind=lower.includes("video")?"video":lower.includes("modul")||lower.includes("materi")||lower.includes("pdf")?"module":kind;
-    await walk(String(file.id),nextSubtest,nextKind);
-   }else if(nextSubtest){
-    const fileKind=lower.includes("video")||String(file.mimeType||"").startsWith("video/")||kind==="video"?"video":"module";
-    out.push({id:"drive-"+file.id,kind:fileKind,title:String(file.name||"Materi Wacawaci"),description:"Materi Google Drive",url:String(file.webViewLink||file.webContentLink||("https://drive.google.com/file/d/"+file.id+"/view")),is_public:true,created_by:"Google Drive",level:"all",subtest:nextSubtest});
-   }
-  }
-   pageToken=String(body.nextPageToken||"");
-  }while(pageToken);
- }
- await walk(WACAWACI_DRIVE_ROOT_ID);return out;
-}
 const mentorQuestions:MentorQuestion[]=[];
 const mentorTryouts:MentorTryout[]=[];
 function buildMentorTryout(body:any){
@@ -98,51 +55,22 @@ async function admin(req:any,res:any,path:string){const body=bodyOf(req);if(path
  if(path==="/api/admin/mentor-bank/tryouts"&&req.method==="POST"){if(!validMentorCode(body.mentor_code))return res.status(403).json({detail:"Kode mentor tidak valid."});const t=buildMentorTryout(body);mentorTryouts.unshift(t);if(supabaseConfigured())await saveMentorResource({id:t.id,kind:"mentor_tryout",title:t.title,description:JSON.stringify(t),url:"",is_public:true,created_by:"mentor",level:t.level});return res.status(201).json(t)}
  return null;
 }
-async function persistentContent(req:any,res:any,path:string){
+async function liveClasses(req:any,res:any,path:string){
  const body=bodyOf(req);
- const wacaKinds="video,module,pdf,ringkasan,cheatsheet,rodi_material";
- const decodeWaca=(row:any)=>{
-  let description=String(row?.description||""),subtest="";
-  try{const meta=JSON.parse(description);if(meta&&typeof meta==="object"&&meta.__mls_wacawaci){description=String(meta.description||"");subtest=String(meta.subtest||"");}}catch{}
-  let subbab="";
-  try{const meta=JSON.parse(String(row?.description||""));if(meta&&typeof meta==="object"&&meta.__mls_wacawaci){subbab=String(meta.subbab||"");}}catch{}
-  return {id:String(row.id),kind:String(row.kind||"module"),title:String(row.title||""),description,url:String(row.url||""),is_public:Boolean(row.is_public),created_by:String(row.created_by||""),level:String(row.level||"nguli"),subtest,subbab};
- };
  const decodeLive=(row:any)=>{
   let meta:any={};try{meta=JSON.parse(String(row?.description||"{}"));}catch{}
   return {id:String(row.id),title:String(row.title||meta.title||""),description:String(meta.description||row.description||""),youtube_url:String(meta.youtube_url||row.url||""),starts_at:String(meta.starts_at||row.created_at||new Date().toISOString()),recording_url:String(meta.recording_url||meta.youtube_url||row.url||""),level:String(row.level||meta.level||"nguli"),status:String(meta.status||"scheduled")};
  };
- if(path==="/api/wacawaci/resources"){
-  if(req.method==="GET"){let stored:any[]=[];try{if(supabaseConfigured()){const rows=await supabaseRequest<any[]>("wacawaci_resources?kind=in.("+wacaKinds+")&select=*&order=created_at.desc");stored=rows.map(decodeWaca);}}catch(error){console.error("WACAWACI_SUPABASE_GET_ERROR",error);}let drive:any[]=[];try{drive=await getDriveWacawaci();}catch(error){console.error("WACAWACI_DRIVE_GET_ERROR",error);}const merged=[...drive,...stored];return res.status(200).json(merged);}
-  if(req.method==="DELETE"){if(!validMentorCode(req.query?.mentor_code||body.mentor_code))return res.status(401).json({detail:"Kode mentor tidak cocok."});if(!supabaseConfigured())return res.status(500).json({detail:"Penyimpanan Supabase belum aktif."});const id=String(req.query?.id||body.id||"").trim();await supabaseRequest("wacawaci_resources?id=eq."+encodeURIComponent(id),{method:"DELETE"});return res.status(200).json({ok:true,id});}
-  if(req.method==="POST"){
-   if(!validMentorCode(body.mentor_code))return res.status(401).json({detail:"Kode mentor tidak cocok."});if(!supabaseConfigured())return res.status(500).json({detail:"Penyimpanan Supabase belum aktif."});
-   const allowed=["video","module","pdf","ringkasan","cheatsheet","rodi_material"],kind=allowed.includes(String(body.kind))?String(body.kind):"module",title=String(body.title||"").trim(),url=String(body.url||"").trim();
-   if(!title)return res.status(400).json({detail:"Judul materi wajib diisi."});if(!url && kind!=="rodi_material")return res.status(400).json({detail:"Masukkan link atau file materi."});
-   const resource={id:"res-"+Date.now()+"-"+crypto.randomBytes(3).toString("hex"),kind,title,description:String(body.description||"").trim(),url,is_public:true,created_by:"Mentor Malas Belajar",level:["nguli","mandor","supervisor"].includes(String(body.level))?String(body.level):"nguli",subtest:String(body.subtest||"pu"),subbab:String(body.subbab||"")};
-   await supabaseRequest("wacawaci_resources",{method:"POST",headers:{Prefer:"return=minimal"},body:JSON.stringify({id:resource.id,kind:resource.kind,title:resource.title,description:JSON.stringify({__mls_wacawaci:true,description:resource.description,subtest:resource.subtest,subbab:resource.subbab}),url:resource.url,is_public:true,created_by:resource.created_by,level:resource.level})});
-   return res.status(201).json(resource);
-  }
-  return res.status(405).json({detail:"Method not allowed"});
+ if(path!=="/api/live-classes") return null;
+ if(req.method==="GET"){if(!supabaseConfigured())return null;const rows=await supabaseRequest<any[]>("wacawaci_resources?kind=eq.live_class&select=*&order=created_at.desc");return res.status(200).json(rows.map(decodeLive));}
+ if(req.method==="DELETE"){if(!validMentorCode(req.query?.mentor_code||body.mentor_code))return res.status(401).json({detail:"Kode mentor tidak cocok."});if(!supabaseConfigured())return res.status(500).json({detail:"Penyimpanan Supabase belum aktif."});const id=String(req.query?.id||body.id||"").trim();await supabaseRequest("wacawaci_resources?id=eq."+encodeURIComponent(id)+"&kind=eq.live_class",{method:"DELETE"});return res.status(200).json({ok:true,id});}
+ if(req.method==="POST"){
+  if(!validMentorCode(body.mentor_code))return res.status(401).json({detail:"Kode mentor tidak cocok."});if(!supabaseConfigured())return res.status(500).json({detail:"Penyimpanan Supabase belum aktif."});
+  const title=String(body.title||"").trim(),youtube_url=String(body.youtube_url||"").trim(),starts_at=String(body.starts_at||"").trim();if(!title||!youtube_url||!starts_at)return res.status(400).json({detail:"Judul, URL YouTube, dan waktu Live Class wajib diisi."});
+  const live={id:"live-"+Date.now()+"-"+crypto.randomBytes(3).toString("hex"),title,description:String(body.description||"").trim()||"Live Class bersama mentor Malas Belajar.",youtube_url,starts_at,recording_url:String(body.recording_url||youtube_url),level:["nguli","mandor","supervisor"].includes(String(body.level))?String(body.level):"nguli",status:"scheduled"};
+  await supabaseRequest("wacawaci_resources",{method:"POST",headers:{Prefer:"return=minimal"},body:JSON.stringify({id:live.id,kind:"live_class",title:live.title,description:JSON.stringify({description:live.description,youtube_url:live.youtube_url,starts_at:live.starts_at,recording_url:live.recording_url,status:live.status}),url:live.youtube_url,is_public:true,created_by:"Mentor Malas Belajar",level:live.level})});return res.status(201).json(live);
  }
- if(path==="/api/wacawaci/upload"&&req.method==="POST"){
-  if(!validMentorCode(req.query?.mentor_code||body.mentor_code))return res.status(401).json({detail:"Kode mentor tidak cocok."});if(!supabaseConfigured())return res.status(500).json({detail:"Penyimpanan Supabase belum aktif."});
-  const title=String(body.title||req.query?.title||"Dokumen Unggahan").trim(),url=String(body.url||req.query?.url||"").trim();if(!url)return res.status(400).json({detail:"URL/file materi wajib diisi."});
-  const resource={id:"res-upload-"+Date.now()+"-"+crypto.randomBytes(3).toString("hex"),kind:String(body.kind||req.query?.kind||"module"),title,description:String(body.description||req.query?.description||""),url,is_public:true,created_by:"Mentor Malas Belajar",level:String(body.level||req.query?.level||"nguli"),subtest:String(body.subtest||"pu")};
-  await supabaseRequest("wacawaci_resources",{method:"POST",headers:{Prefer:"return=minimal"},body:JSON.stringify({id:resource.id,kind:resource.kind,title:resource.title,description:JSON.stringify({__mls_wacawaci:true,description:resource.description,subtest:resource.subtest}),url:resource.url,is_public:true,created_by:resource.created_by,level:resource.level})});return res.status(201).json(resource);
- }
- if(path==="/api/live-classes"){
-  if(req.method==="GET"){if(!supabaseConfigured())return null;const rows=await supabaseRequest<any[]>("wacawaci_resources?kind=eq.live_class&select=*&order=created_at.desc");return res.status(200).json(rows.map(decodeLive));}
-  if(req.method==="DELETE"){if(!validMentorCode(req.query?.mentor_code||body.mentor_code))return res.status(401).json({detail:"Kode mentor tidak cocok."});if(!supabaseConfigured())return res.status(500).json({detail:"Penyimpanan Supabase belum aktif."});const id=String(req.query?.id||body.id||"").trim();await supabaseRequest("wacawaci_resources?id=eq."+encodeURIComponent(id)+"&kind=eq.live_class",{method:"DELETE"});return res.status(200).json({ok:true,id});}
-  if(req.method==="POST"){
-   if(!validMentorCode(body.mentor_code))return res.status(401).json({detail:"Kode mentor tidak cocok."});if(!supabaseConfigured())return res.status(500).json({detail:"Penyimpanan Supabase belum aktif."});
-   const title=String(body.title||"").trim(),youtube_url=String(body.youtube_url||"").trim(),starts_at=String(body.starts_at||"").trim();if(!title||!youtube_url||!starts_at)return res.status(400).json({detail:"Judul, URL YouTube, dan waktu Live Class wajib diisi."});
-   const live={id:"live-"+Date.now()+"-"+crypto.randomBytes(3).toString("hex"),title,description:String(body.description||"").trim()||"Live Class bersama mentor Malas Belajar.",youtube_url,starts_at,recording_url:String(body.recording_url||youtube_url),level:["nguli","mandor","supervisor"].includes(String(body.level))?String(body.level):"nguli",status:"scheduled"};
-   await supabaseRequest("wacawaci_resources",{method:"POST",headers:{Prefer:"return=minimal"},body:JSON.stringify({id:live.id,kind:"live_class",title:live.title,description:JSON.stringify({description:live.description,youtube_url:live.youtube_url,starts_at:live.starts_at,recording_url:live.recording_url,status:live.status}),url:live.youtube_url,is_public:true,created_by:"Mentor Malas Belajar",level:live.level})});return res.status(201).json(live);
-  }
-  return res.status(405).json({detail:"Method not allowed"});
- }
- return null;
+ return res.status(405).json({detail:"Method not allowed"});
 }
 async function content(req:any,res:any,path:string){
  if(path==="/api/rodi/module"&&req.method==="GET"){
@@ -186,4 +114,4 @@ if(path==="/api/utbaby/sessions"&&req.method==="POST")return res.status(201).jso
  if(path.startsWith("/api/utbaby/sessions/")&&req.method==="GET"){const id=path.split("/").pop();const t=mentorTryouts.find(x=>x.id===id)||mentorTryouts[0];if(!t)return res.status(404).json({detail:"Belum ada tryout mentor."});return res.status(200).json(t)}
  return null;
 }
-export default async function handler(req:any,res:any){const path=normalizePath(req);const raw=String(req.url||"");req.url=path+(raw.includes("?")?`?${raw.split("?")[1]}`:"");try{if(path.startsWith("/api/auth/")){const r=await auth(req,res,path);if(r!==null)return r}if(path.startsWith("/api/admin/")){const r=await admin(req,res,path);if(r!==null)return r}if(path.startsWith("/api/wacawaci/")||path==="/api/wacawaci/resources"||path==="/api/live-classes"){const r=await persistentContent(req,res,path);if(r!==null)return r}if(path==="/api/rodi/module"||path==="/api/rodi/questions"||path.startsWith("/api/utbaby/")||path==="/api/utbaby/sessions"){const r=await content(req,res,path);if(r!==null)return r}const {default:app}=await import("../server");return app(req,res)}catch(error){console.error("API_HANDLER_ERROR",error);if(!res.headersSent)return res.status(500).json({detail:error instanceof Error?error.message:"Server gagal memproses permintaan."})}}
+export default async function handler(req:any,res:any){const path=normalizePath(req);const raw=String(req.url||"");req.url=path+(raw.includes("?")?`?${raw.split("?")[1]}`:"");try{if(path.startsWith("/api/auth/")){const r=await auth(req,res,path);if(r!==null)return r}if(path.startsWith("/api/admin/")){const r=await admin(req,res,path);if(r!==null)return r}if(path==="/api/live-classes"){const r=await liveClasses(req,res,path);if(r!==null)return r}if(path==="/api/rodi/module"||path==="/api/rodi/questions"||path.startsWith("/api/utbaby/")||path==="/api/utbaby/sessions"){const r=await content(req,res,path);if(r!==null)return r}const {default:app}=await import("../server");return app(req,res)}catch(error){console.error("API_HANDLER_ERROR",error);if(!res.headersSent)return res.status(500).json({detail:error instanceof Error?error.message:"Server gagal memproses permintaan."})}}
