@@ -12,6 +12,7 @@ import StudentEntryGate from "@/components/StudentEntryGate";
 import { Toaster } from "sonner";
 
 export default function App() {
+  const mentorControl = window.location.pathname === "/mentor-control";
   return (
     <>
       <Routes>
@@ -20,7 +21,7 @@ export default function App() {
         <Route path="/login" element={<StudentAuth />} />
         <Route path="/mentor-control" element={<MentorControlV2 />} />
       </Routes>
-      <StudentEntryGate />
+      {!mentorControl && <StudentEntryGate />}
       <HideOldMentorFix />
       <WacawaciUploadFix />
       <MentorContentManagerFix />
