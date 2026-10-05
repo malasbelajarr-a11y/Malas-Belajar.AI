@@ -2419,8 +2419,8 @@ export default function Home() {
     setView(next);
     setNotificationsOpen(false);
     if (next === "wacawaci") {
-      // Jangan paksa PU + VIDEO: kalau kategori itu kosong, Wacawaci terlihat seolah-olah tidak masuk.
-      // Filter akan otomatis pindah ke materi pertama yang benar-benar tersedia.
+      setResourceSubtest("pu");
+      setResourceKind("video");
       queryClient.invalidateQueries({ queryKey: ["wacawaci", user?.level] });
     }
     if (next === "rodi" || next === "utbaby") {
@@ -2459,48 +2459,6 @@ export default function Home() {
     const matchesLevel = !item.level || item.level === "all" || item.level === safeUser.level;
     return matchesSubtest && matchesKind && matchesLevel;
   });
-  useEffect(() => {
-    if (view !== "wacawaci" || resourcesQuery.isLoading) return;
-    const available = (resourcesQuery.data ?? []).filter(
-      (item) =>
-        !item.level ||
-        item.level === "all" ||
-        item.level === safeUser.level,
-    );
-    if (!available.length) return;
-
-    const currentSubtestItems = available.filter(
-      (item) => !item.subtest || item.subtest === resourceSubtest,
-    );
-    if (!currentSubtestItems.length) {
-      const first = available.find((item) => item.subtest);
-      if (first?.subtest && first.subtest !== resourceSubtest) {
-        setResourceSubtest(first.subtest);
-      }
-      return;
-    }
-
-    const currentKindItems = currentSubtestItems.filter((item) =>
-      resourceKind === "video"
-        ? item.kind === "video"
-        : item.kind === "module" ||
-          item.kind === "pdf" ||
-          item.kind === "ringkasan" ||
-          item.kind === "cheatsheet",
-    );
-    if (!currentKindItems.length) {
-      const first = currentSubtestItems[0];
-      setResourceKind(first.kind === "video" ? "video" : "module");
-    }
-  }, [
-    view,
-    resourcesQuery.data,
-    resourcesQuery.isLoading,
-    resourceSubtest,
-    resourceKind,
-    safeUser.level,
-  ]);
-
   const activeLive = liveQuery.data?.[0];
   useEffect(() => {
     if (!reviewOpen || !tryoutResult || !tryoutQuery.data) return;
