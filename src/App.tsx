@@ -1,6 +1,7 @@
 import { Routes, Route } from "react-router-dom";
 import Home from "@/pages/Home";
 import StudentAuth from "@/pages/StudentAuth";
+import MentorControlV2 from "@/pages/MentorControlV2";
 import AuthVisualFix from "@/components/AuthVisualFix";
 import HideOldMentorFix from "@/components/HideOldMentorFix";
 import WacawaciUploadFix from "@/components/WacawaciUploadFix";
@@ -17,6 +18,7 @@ export default function App() {
         <Route path="/" element={<AuthVisualFix><Home /></AuthVisualFix>} />
         <Route path="/akun" element={<StudentAuth />} />
         <Route path="/login" element={<StudentAuth />} />
+        <Route path="/mentor-control" element={<MentorControlV2 />} />
       </Routes>
       <StudentEntryGate />
       <HideOldMentorFix />
