@@ -4,6 +4,7 @@ import StudentAuth from "@/pages/StudentAuth";
 import MentorControlV2 from "@/pages/MentorControlV2";
 import AuthVisualFix from "@/components/AuthVisualFix";
 import MentorDashboardPlus from "@/components/MentorDashboardPlus";
+import MentorContentManager from "@/components/MentorContentManager";
 import StudentEntryGate from "@/components/StudentEntryGate";
 import { Toaster } from "sonner";
 
@@ -19,6 +20,7 @@ export default function App() {
       </Routes>
       {!mentorControl && <StudentEntryGate />}
       <MentorDashboardPlus />
+      <MentorContentManager />
       <Toaster richColors position="top-right" />
     </>
   );
