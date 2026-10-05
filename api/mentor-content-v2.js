@@ -5,22 +5,7 @@ const cfg=()=>!!(process.env.SUPABASE_URL&&process.env.SUPABASE_SERVICE_ROLE_KEY
 async function db(path,init={}){if(!cfg())throw Error("Supabase belum aktif");const k=process.env.SUPABASE_SERVICE_ROLE_KEY,r=await fetch(String(process.env.SUPABASE_URL).replace(/\/$/,"")+"/rest/v1/"+path,{...init,headers:{apikey:k,Authorization:"Bearer "+k,"Content-Type":"application/json",...(init.headers||{})}}),t=await r.text();let x={};try{x=t?JSON.parse(t):{}}catch{}if(!r.ok)throw Error(String(x.message||x.details||x.hint||"Supabase error"));return x}
 const body=req=>{if(!req.body)return{};if(typeof req.body==="string"){try{return JSON.parse(req.body)}catch{return{}}}return req.body};
 const norm=v=>String(v||"").toLowerCase().replace(/[^a-z0-9]+/g," ").trim();
-function sub(v){
-  const n=norm(v);
-  const a=[
-    ["pu",["pu","penalaran umum"]],
-    ["ppu",["ppu","pengetahuan pemahaman umum","pengetahuan dan pemahaman umum"]],
-    ["pbm",["pbm","pemahaman bacaan","pemahaman bacaan dan menulis"]],
-    ["pk",["pk","pengetahuan kuantitatif"]],
-    ["lit_indo",["lit indo","literasi bahasa indonesia","literasi indonesia","bahasa indonesia"]],
-    ["lit_inggris",["lit inggris","literasi bahasa inggris","literasi inggris","bahasa inggris"]],
-    ["pm",["pm","penalaran matematika"]]
-  ];
-  for(const [id,aliases] of a){
-    if(aliases.some(x=>n===x||n.includes(x)))return id;
-  }
-  return "";
-}
+function sub(v){const n=norm(v),a=[["pu","penalaran umum"],["ppu","pengetahuan pemahaman umum"],["pbm","pemahaman bacaan"],["pk","pengetahuan kuantitatif"],["lit_indo","literasi bahasa indonesia"],["lit_inggris","literasi bahasa inggris"],["pm","penalaran matematika"]];for(const [id,x] of a)if(n===id||n.includes(x)||n.split(" ").includes(id))return id;return""}
 function qrow(r){if(r?.prompt)return r;try{return JSON.parse(String(r?.description||""))}catch{return null}}
 function wrow(r){let d=String(r?.description||""),s=String(r?.subtest||"");try{const m=JSON.parse(d);if(m?.__mls_wacawaci){d=String(m.description||"");s=String(m.subtest||s)}}catch{}return{id:String(r.id),kind:String(r.kind||"module"),title:String(r.title||""),description:d,url:String(r.url||""),is_public:r.is_public!==false,created_by:String(r.created_by||""),level:String(r.level||"all"),subtest:s,created_at:r.created_at}}
 async function drive(){const key=String(process.env.GOOGLE_DRIVE_API_KEY||"").trim();if(!key)return[];const out=[],seen=new Set();async function walk(p,inherit="",kind="",level="nguli"){if(seen.has(p))return;seen.add(p);let token="";do{const q=encodeURIComponent("'"+p+"' in parents and trashed = false"),f=encodeURIComponent("nextPageToken,files(id,name,mimeType,webViewLink,webContentLink,createdTime)"),u="https://www.googleapis.com/drive/v3/files?q="+q+"&pageSize=1000&fields="+f+"&includeItemsFromAllDrives=true&supportsAllDrives=true&corpora=allDrives&key="+encodeURIComponent(key)+(token?"&pageToken="+encodeURIComponent(token):""),r=await fetch(u),x=await r.json().catch(()=>({}));if(!r.ok)throw Error(String(x?.error?.message||"Drive error"));for(const f of Array.isArray(x.files)?x.files:[]){const name=String(f.name||"");const fn=norm(name);const nextLevel=fn.includes("supervisor")?"supervisor":fn.includes("mandor")?"mandor":fn.includes("nguli")?"nguli":level;const s=sub(name)||inherit,m=String(f.mimeType||"");if(m==="application/vnd.google-apps.folder")await walk(String(f.id),s,norm(name).includes("video")?"video":kind,nextLevel);else if(s)out.push({id:"drive-"+f.id,kind:m.startsWith("video/")||kind==="video"?"video":"module",title:name||"Materi Wacawaci",description:"Materi Wacawaci dari Google Drive",url:String(f.webViewLink||f.webContentLink||"https://drive.google.com/file/d/"+f.id+"/view"),is_public:true,created_by:"Google Drive",level:nextLevel,subtest:s,created_at:f.createdTime})}token=String(x.nextPageToken||"")}while(token)}await walk(ROOT);return out}
