@@ -6,13 +6,14 @@ import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
 import { apiGet } from "@/lib/api";
 import { toast } from "sonner";
+import MentorContentPanel from "@/components/MentorContentPanel";
 
 type Level = "nguli" | "mandor" | "supervisor";
 type Student = { id: string; name: string; email: string; level: Level; active: boolean };
 type AccessCode = { id: string; code: string; level: Level; used: boolean; used_by: string };
 type LeaderboardEntry = { rank: number; participant: string; score: number; correct: number; total: number; submitted_at: string };
 type LiveClass = { id: string; title: string; description: string; youtube_url: string; starts_at: string; level: string; status: string };
-const tabs = ["overview", "students", "ranking", "codes", "live"] as const;
+const tabs = ["overview", "students", "ranking", "codes", "live", "content"] as const;
 type Tab = (typeof tabs)[number];
 const levelLabel: Record<Level, string> = { nguli: "Nguli ⚒️", mandor: "Mandor ⛑️", supervisor: "Supervisor 🎖️" };
 
@@ -128,7 +129,9 @@ export default function MentorDashboardPlus() {
         {[["TOTAL SISWA", students.length, "text-white"], ["AKTIF", activeStudents, "text-emerald-300"], ["NGULI", byLevel("nguli"), "text-yellow-300"], ["MANDOR", byLevel("mandor"), "text-pink-300"], ["SUPERVISOR", byLevel("supervisor"), "text-violet-200"]].map(([label, value, tone]) => <div key={String(label)} className="rounded-xl border-2 border-violet-700 bg-violet-900 p-3"><p className="text-[10px] font-bold text-violet-300">{label}</p><p className={`mt-1 text-2xl font-black ${tone}`}>{value}</p></div>)}
       </div>
 
-      <div className="mt-5 flex flex-wrap gap-2">{tabs.map((item) => <Button key={item} onClick={() => setTab(item)} variant={tab === item ? "default" : "outline"} className={tab === item ? "bg-yellow-300 text-violet-950" : "border-violet-700 bg-violet-900 text-white"}>{item === "overview" ? "Ringkasan" : item === "students" ? "Panel Siswa" : item === "ranking" ? "Ranking + IRT" : item === "codes" ? "Kode Akses" : "Live Class"}</Button>)}</div>
+      <div className="mt-5 flex flex-wrap gap-2">{tabs.map((item) => <Button key={item} onClick={() => setTab(item)} variant={tab === item ? "default" : "outline"} className={tab === item ? "bg-yellow-300 text-violet-950" : "border-violet-700 bg-violet-900 text-white"}>{item === "overview" ? "Ringkasan" : item === "students" ? "Panel Siswa" : item === "ranking" ? "Ranking + IRT" : item === "codes" ? "Kode Akses" : item === "live" ? "Live Class" : "Wacawaci + Soal"}</Button>)}</div>
+
+      {tab === "content" && <MentorContentPanel />}
 
       {tab === "overview" && <div className="mt-5 grid gap-4 lg:grid-cols-2">
         <div className="rounded-xl border-2 border-violet-700 bg-white p-4 text-violet-950"><h3 className="font-black">KODE SISWA</h3><p className="mt-1 text-xs text-slate-600">Generator kode siswa dipusatkan di panel <b>KODE SISWA</b> di atas supaya tidak ada dua generator yang berbeda.</p><p className="mt-3 text-xs font-bold text-violet-700">Kode yang sudah dibuat tetap dibaca dari penyimpanan yang sama.</p></div>
