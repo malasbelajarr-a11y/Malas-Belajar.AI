@@ -2192,7 +2192,7 @@ export default function Home() {
   });
   const resourcesQuery = useQuery({
     queryKey: ["wacawaci", user?.level],
-    queryFn: () => apiGet<Resource[]>("/mentor-content-v2?action=wacawaci"),
+    queryFn: () => apiGet<Resource[]>("/mentor-content-v2?action=wacawaci&level=" + encodeURIComponent(user?.level || "nguli")),
     enabled: Boolean(user && view === "wacawaci"),
     retry: 2,
     staleTime: 0,
@@ -2456,7 +2456,8 @@ export default function Home() {
           item.kind === "pdf" ||
           item.kind === "ringkasan" ||
           item.kind === "cheatsheet";
-    return matchesSubtest && matchesKind;
+    const matchesLevel = !item.level || item.level === "all" || item.level === safeUser.level;
+    return matchesSubtest && matchesKind && matchesLevel;
   });
   const activeLive = liveQuery.data?.[0];
   useEffect(() => {
