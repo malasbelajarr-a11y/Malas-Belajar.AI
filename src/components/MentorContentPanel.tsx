@@ -43,7 +43,7 @@ export default function MentorContentPanel() {
       const qData = await q.json().catch(() => []);
       if (!w.ok) throw new Error(wData?.detail || "Wacawaci gagal dimuat.");
       if (!q.ok) throw new Error(qData?.detail || "Soal mentor gagal dimuat.");
-      setResources(Array.isArray(wData) ? wData : []);
+      setResources(Array.isArray(wData) ? wData : (Array.isArray(wData?.items) ? wData.items : []));
       setQuestions(Array.isArray(qData) ? qData : []);
     } catch (e) {
       setError(e instanceof Error ? e.message : "Gagal memuat konten.");
