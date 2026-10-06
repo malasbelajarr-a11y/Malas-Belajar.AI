@@ -36,7 +36,7 @@ export default function MentorContentPanel() {
     setError("");
     try {
       const [w, q] = await Promise.all([
-        fetch(`/api/mentor-content-v2?action=wacawaci&level=${level}`, { cache: "no-store" }),
+        fetch(`/api/wacawaci?level=${level}`, { cache: "no-store" }),
         fetch(`/api/mentor-content-v2?action=student-questions&level=${level}`, { cache: "no-store" }),
       ]);
       const wData = await w.json().catch(() => []);
