@@ -2192,7 +2192,7 @@ export default function Home() {
   });
   const resourcesQuery = useQuery({
     queryKey: ["wacawaci", user?.level],
-    queryFn: () => apiGet<Resource[]>("/mentor-content-v2?action=wacawaci&level=" + encodeURIComponent(user?.level || "nguli")),
+    queryFn: async () => { const data = await apiGet<Resource[] | {items: Resource[]; drive_ok?: boolean; drive_error?: string | null}>("/mentor-content-v2?action=wacawaci&level=" + encodeURIComponent(user?.level || "nguli")); return Array.isArray(data) ? data : (data.items ?? []); },
     enabled: Boolean(user && view === "wacawaci"),
     retry: 2,
     staleTime: 0,
