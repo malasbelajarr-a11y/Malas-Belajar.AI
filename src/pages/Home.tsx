@@ -2132,7 +2132,7 @@ export default function Home() {
   const [showAllQuestions, setShowAllQuestions] = useState(false);
   const [answers, setAnswers] = useState<Record<string, string>>({});
   const [solutions, setSolutions] = useState<Record<string, boolean>>({});
-  const [resourceKind, setResourceKind] = useState("module");
+  const [resourceKind, setResourceKind] = useState("all");
   const [resourceSubtest, setResourceSubtest] = useState("pu");
   const [selectedSession, setSelectedSession] = useState("utbaby-demo-2026");
   const [tryoutAnswers, setTryoutAnswers] = useState<Record<string, number>>(
@@ -2425,7 +2425,7 @@ export default function Home() {
     setNotificationsOpen(false);
     if (next === "wacawaci") {
       setResourceSubtest("pu");
-      setResourceKind("video");
+      setResourceKind("all");
       queryClient.invalidateQueries({ queryKey: ["wacawaci", user?.level] });
     }
     if (next === "rodi" || next === "utbaby") {
@@ -2455,12 +2455,14 @@ export default function Home() {
   const filteredResources = (resourcesQuery.data ?? []).filter((item) => {
     const matchesSubtest = !item.subtest || item.subtest === resourceSubtest;
     const matchesKind =
-      resourceKind === "video"
-        ? item.kind === "video"
-        : item.kind === "module" ||
-          item.kind === "pdf" ||
-          item.kind === "ringkasan" ||
-          item.kind === "cheatsheet";
+      resourceKind === "all"
+        ? true
+        : resourceKind === "video"
+          ? item.kind === "video"
+          : item.kind === "module" ||
+            item.kind === "pdf" ||
+            item.kind === "ringkasan" ||
+            item.kind === "cheatsheet";
     const matchesLevel = !item.level || item.level === "all" || item.level === safeUser.level;
     return matchesSubtest && matchesKind && matchesLevel;
   });
@@ -3167,7 +3169,14 @@ export default function Home() {
                 </button>
               ))}
             </section>
-            <div className="mt-5 flex gap-3">
+            <div className="mt-5 flex flex-wrap gap-3">
+              <PixelButton
+                onClick={() => setResourceKind("all")}
+                className={`px-6 py-3 ${resourceKind === "all" ? "bg-yellow-300" : "bg-white"}`}
+                data-testid="wacawaci-all-tab"
+              >
+                SEMUA
+              </PixelButton>
               <PixelButton
                 onClick={() => setResourceKind("video")}
                 className={`px-6 py-3 ${resourceKind === "video" ? "bg-pink-300" : "bg-white"}`}
@@ -3309,6 +3318,30 @@ export default function Home() {
                   </p>
                 </article>
               ))}
+            </section>
+            <section className="mt-8">
+              <div className="mb-4 flex items-center justify-between gap-3">
+                <div>
+                  <p className="pixel-label">REKAMAN LIVE CLASS</p>
+                  <h2 className="pixel-title text-xl text-violet-950">Tonton Kelas yang Sudah Lewat</h2>
+                </div>
+                <Video className="h-7 w-7 text-violet-700" />
+              </div>
+              <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+                {(liveQuery.data ?? []).filter((live) => Boolean(live.recording_url) && live.status === "completed").map((live) => (
+                  <article key={`recording-${live.id}`} className="pixel-card bg-white p-4">
+                    <Badge className="bg-emerald-600 text-white">REKAMAN</Badge>
+                    <p className="mt-3 font-black text-violet-950">{live.title}</p>
+                    <p className="mt-1 text-xs text-slate-500">{new Date(live.starts_at).toLocaleString("id-ID")}</p>
+                    <a href={live.recording_url} target="_blank" rel="noreferrer" className="mt-4 inline-flex text-xs font-black text-violet-700 underline">
+                      TONTON REKAMAN
+                    </a>
+                  </article>
+                ))}
+                {!(liveQuery.data ?? []).some((live) => Boolean(live.recording_url) && live.status === "completed") && (
+                  <p className="text-sm font-semibold text-slate-500">Belum ada rekaman Live Class.</p>
+                )}
+              </div>
             </section>
           </div>
         </main>
