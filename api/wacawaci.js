@@ -5,8 +5,8 @@ const SUBTESTS = [
   ["ppu", ["ppu", "pengetahuan pemahaman umum", "pengetahuan dan pemahaman umum"]],
   ["pbm", ["pbm", "pemahaman bacaan", "pemahaman bacaan dan menulis"]],
   ["pk", ["pk", "pengetahuan kuantitatif"]],
-  ["lit_indo", ["lit indo", "literasi bahasa indonesia", "literasi indonesia"]],
-  ["lit_inggris", ["lit inggris", "literasi bahasa inggris", "literasi inggris"]],
+  ["lit_indo", ["lit indo", "lit ind", "literasi bahasa indonesia", "literasi indonesia"]],
+  ["lit_inggris", ["lit inggris", "lit ing", "literasi bahasa inggris", "literasi inggris"]],
   ["pm", ["pm", "penalaran matematika"]],
 ];
 const normalize = (v) => String(v ?? "").toLowerCase().replace(/[^a-z0-9]+/g, " ").trim();
@@ -87,6 +87,14 @@ export default async function handler(req, res) {
     return all;
   }
 
+  async function findWacawaciFolder() {
+    const children = await listChildren(ROOT);
+    const exact = children.find((file) =>
+      String(file.mimeType || "") === FOLDER_MIME && normalize(file.name) === "wacawaci"
+    );
+    return exact ? String(exact.id) : "";
+  }
+
   async function walk(parentId, inheritedSubtest = "", inheritedLevel = "all", inheritedKind = "") {
     if (visited.has(parentId)) return;
     visited.add(parentId);
@@ -112,7 +120,11 @@ export default async function handler(req, res) {
   }
 
   try {
-    await walk(ROOT);
+    const wacawaciFolder = await findWacawaciFolder();
+    if (!wacawaciFolder) {
+      throw new Error("Folder Wacawaci tidak ditemukan di dalam folder Drive utama.");
+    }
+    await walk(wacawaciFolder);
     const unique = new Map();
     for (const item of items) unique.set(item.id, item);
     const result = [...unique.values()].sort((a, b) =>
@@ -120,7 +132,7 @@ export default async function handler(req, res) {
     );
     return res.status(200).json({
       ok: true, drive_ok: true, source: "google-drive",
-      root_folder: ROOT, count: result.length, items: result,
+      root_folder: ROOT, wacawaci_folder: wacawaciFolder, count: result.length, items: result,
     });
   } catch (error) {
     const detail = error instanceof Error ? error.message : "Google Drive gagal dibaca.";
