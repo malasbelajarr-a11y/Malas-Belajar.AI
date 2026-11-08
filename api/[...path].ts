@@ -55,6 +55,12 @@ async function admin(req:any,res:any,path:string){const body=bodyOf(req);if(path
  if(path==="/api/admin/mentor-bank/tryouts"&&req.method==="POST"){if(!validMentorCode(body.mentor_code))return res.status(403).json({detail:"Kode mentor tidak valid."});const t=buildMentorTryout(body);mentorTryouts.unshift(t);if(supabaseConfigured())await saveMentorResource({id:t.id,kind:"mentor_tryout",title:t.title,description:JSON.stringify(t),url:"",is_public:true,created_by:"mentor",level:t.level});return res.status(201).json(t)}
  return null;
 }
+async function dispatchDedicatedApi(req:any,res:any,path:string){
+ if(path==="/api/wacawaci"){const h=await import("./wacawaci");return h.default(req,res)}
+ if(path==="/api/wacawaci-mentor"){const h=await import("./wacawaci-mentor");return h.default(req,res)}
+ if(path==="/api/mentor-actions"){const h=await import("./mentor-actions");return h.default(req,res)}
+ return null;
+}
 async function liveClasses(req:any,res:any,path:string){
  const body=bodyOf(req);
  const decodeLive=(row:any)=>{
@@ -114,4 +120,4 @@ if(path==="/api/utbaby/sessions"&&req.method==="POST")return res.status(201).jso
  if(path.startsWith("/api/utbaby/sessions/")&&req.method==="GET"){const id=path.split("/").pop();const t=mentorTryouts.find(x=>x.id===id)||mentorTryouts[0];if(!t)return res.status(404).json({detail:"Belum ada tryout mentor."});return res.status(200).json(t)}
  return null;
 }
-export default async function handler(req:any,res:any){const path=normalizePath(req);const raw=String(req.url||"");req.url=path+(raw.includes("?")?`?${raw.split("?")[1]}`:"");try{if(path.startsWith("/api/auth/")){const r=await auth(req,res,path);if(r!==null)return r}if(path.startsWith("/api/admin/")){const r=await admin(req,res,path);if(r!==null)return r}if(path==="/api/live-classes"){const r=await liveClasses(req,res,path);if(r!==null)return r}if(path==="/api/rodi/module"||path==="/api/rodi/questions"||path.startsWith("/api/utbaby/")||path==="/api/utbaby/sessions"){const r=await content(req,res,path);if(r!==null)return r}const {default:app}=await import("../server");return app(req,res)}catch(error){console.error("API_HANDLER_ERROR",error);if(!res.headersSent)return res.status(500).json({detail:error instanceof Error?error.message:"Server gagal memproses permintaan."})}}
+export default async function handler(req:any,res:any){const path=normalizePath(req);const raw=String(req.url||"");req.url=path+(raw.includes("?")?`?${raw.split("?")[1]}`:"");try{const dedicated=await dispatchDedicatedApi(req,res,path);if(dedicated!==null)return dedicated;if(path.startsWith("/api/auth/")){const r=await auth(req,res,path);if(r!==null)return r}if(path.startsWith("/api/admin/")){const r=await admin(req,res,path);if(r!==null)return r}if(path==="/api/live-classes"){const r=await liveClasses(req,res,path);if(r!==null)return r}if(path==="/api/rodi/module"||path==="/api/rodi/questions"||path.startsWith("/api/utbaby/")||path==="/api/utbaby/sessions"){const r=await content(req,res,path);if(r!==null)return r}const {default:app}=await import("../server");return app(req,res)}catch(error){console.error("API_HANDLER_ERROR",error);if(!res.headersSent)return res.status(500).json({detail:error instanceof Error?error.message:"Server gagal memproses permintaan."})}}
