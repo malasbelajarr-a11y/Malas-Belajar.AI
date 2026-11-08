@@ -1,5 +1,4 @@
 import crypto from 'node:crypto';
-import type { VercelRequest,VercelResponse } from '@vercel/node';
 
 const MENTOR_CODES=new Set(['MENTOR-MLS','RODI2026','MALASBELAJAR','MLS2026','123456','ADMIN','MENTOR']);
 const MENTOR_HASH='d36da217d9e1e322ce91fd8bd8eaa4f327cfbc5648f827ac0554d4e49b25fa2e';
@@ -21,7 +20,7 @@ function bodyOf(req:any){return typeof req.body==='string'?JSON.parse(req.body||
 function parseRows(rows:any[],field='description'){return rows.map(r=>{try{return typeof r?.[field]==='string'?JSON.parse(r[field]):r?.data}catch{return null}}).filter(Boolean)}
 async function saveResource(data:any){await db('wacawaci_resources',{method:'POST',headers:{Prefer:'return=minimal'},body:JSON.stringify(data)});return true}
 
-export default async function handler(req:VercelRequest,res:VercelResponse){
+export default async function handler(req:any,res:any){
   try{
     const action=String(req.query?.action||'').trim().toLowerCase(); const body=bodyOf(req);
     if(!action)return res.status(400).json({detail:'Aksi mentor tidak ditentukan.'});
